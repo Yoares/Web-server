@@ -8,6 +8,7 @@ std::string ConfigParser::consume(){
     {
         throw std::runtime_error("Config Error: Unexpected end of file.");
     }
+    return _tokens[_pos++];
 }
 
 void ConfigParser::expect(const std::string& expected) {
