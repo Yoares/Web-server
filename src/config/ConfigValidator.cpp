@@ -68,8 +68,8 @@ void ConfigValidator::validate_location(const Location& loc) {
         }
     }
 
-    // 4. Validate Upload Directory (if enabled)
-    if (loc.upload_enable && !is_directory(loc.upload_dir)) {
+    // 4. Validate Upload Directory
+    if (!is_directory(loc.upload_dir)) {
         throw std::runtime_error("Validation Error: Upload directory does not exist: " + loc.upload_dir);
     }
 }
