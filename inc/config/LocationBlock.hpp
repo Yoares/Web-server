@@ -13,7 +13,6 @@ struct Location {
     std::vector<std::string> allowed_methods; //Security: allowed_methods restricts bad requests (e.g., stopping a POST on a read-only directory).
     
     bool autoindex; //Files: index and autoindex handle directory requests perfectly.
-    bool upload_enable; //Uploads: upload_enable and upload_dir handle the file upload requirement cleanly.
     std::string upload_dir;
     
     int redirect_code;         

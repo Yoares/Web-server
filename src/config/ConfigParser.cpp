@@ -112,11 +112,7 @@ Location ConfigParser::parse_location() {
             loc.cgi_pass[ext] = bin;
             expect(";");
         }
-        else if (directive == "upload_enable") {
-            std::string val = consume();
-            loc.upload_enable = (val == "on");
-            expect(";");
-        }
+
         else if (directive == "upload_dir" || directive == "upload_store") {
             loc.upload_dir = consume();
             expect(";");
