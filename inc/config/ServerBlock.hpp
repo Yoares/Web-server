@@ -11,10 +11,10 @@
 struct ListenParams {
     std::string ip;
     int port;
-    int socket_fd; // Moving the socket_fd here because every port gets its own socket!
+    // int socket_fd; // Moving the socket_fd here because every port gets its own socket!
 
     // Constructor
-    ListenParams(std::string i, int p) : ip(i), port(p), socket_fd(-1) {}
+    ListenParams(std::string i, int p) : ip(i), port(p) {}
 };
 
 struct Server {
