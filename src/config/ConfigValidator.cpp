@@ -16,8 +16,16 @@ void ConfigValidator::validate(const std::vector<Server>& servers) {
 
 void ConfigValidator::validate_server(const Server& srv) {
     // 1. Validate Port Range
-    if (srv.port <= 0 || srv.port > 65535) {
-        throw std::runtime_error("Validation Error: Invalid port number.");
+    if (srv.listen_list.empty()) {
+        throw std::runtime_error("Validation Error: Server block is missing a 'listen' directive.");
+    }
+    
+    for (size_t i = 0; i < srv.listen_list.size(); ++i) {
+        if (srv.listen_list[i].port <= 0 || srv.listen_list[i].port > 65535) {
+            // Note: C++98 doesn't easily let us concatenate ints to strings in exceptions,
+            // so a generic but clear message is perfect here.
+            throw std::runtime_error("Validation Error: Invalid port number detected in a listen directive.");
+        }
     }
 
     // 2. Validate Error Pages

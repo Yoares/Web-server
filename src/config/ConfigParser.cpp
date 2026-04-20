@@ -44,8 +44,10 @@ Server ConfigParser::parse_server() {
     while (_pos < _tokens.size() && _tokens[_pos] != "}") {
         std::string directive = consume();
 
-        if (directive ==  "listen"){
-            srv.port = std::atoi(consume().c_str());
+        if (directive == "listen") {
+            std::string port_str = consume();
+            int parsed_port = std::atoi(port_str.c_str());
+            srv.listen_list.push_back(ListenParams("0.0.0.0", parsed_port));
             expect(";");
         }
         else if (directive == "server_name"){
