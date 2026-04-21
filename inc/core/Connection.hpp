@@ -3,6 +3,9 @@
 
 #include <string>
 #include "../http/HttpRequest.hpp"
+#include <sys/socket.h>
+#include <exception>
+#include "../config/Config.hpp"
 
 class Connection {
     private:
@@ -14,6 +17,12 @@ class Connection {
     public:
         Connection(int fd, const std::vector<Server>& servers) 
             : _client_fd(fd), _possible_servers(servers), _matched_server(NULL) {}
+		void handleRequest();
+		class ConnectionClosed : public std::exception
+		{
+			public:
+				const char* what() const throw();
+		};
 
     private:
         const Server* findCorrectServer(const std::string& host);

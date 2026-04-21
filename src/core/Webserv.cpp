@@ -113,7 +113,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 	for (size_t i = 0; i < events.size(); ++i)
 	{
 		bool isServerSocket = fdToServers.find(events[i].data.fd) != fdToServers.end();
-		if  (isServerSocket == true)
+		if (isServerSocket == true)
 		{
 			int fd = accept(events[i].data.fd, NULL, NULL);
 			if (fd == -1)
@@ -122,7 +122,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 			std::memset(&ev, 0, sizeof(ev));
 			ev.events = EPOLLIN | EPOLLOUT;
 			ev.data.fd = fd;
-			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, sockfd, &ev) == -1)
+			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &ev) == -1)
 				throw std::runtime_error("Fatal Error: epoll_ctl failed.");
 		}
 		if (isServerSocket == false && connections.find(events[i].data.fd) == connections.end())
@@ -131,13 +131,40 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 		}
 	}
 }
+
 void Webserv::handleConnections(const std::vector<epoll_event> &events)
 {
 	for (size_t i = 0; i < events.size(); ++i)
 	{
 		if (connections.find(events[i].data.fd) != connections.end())
 		{
-			// This is a client connection, so we handle it.
+			Connection &conn = connections[events[i].data.fd];
+			if (events[i].events & EPOLLIN)
+			{
+				try
+				{
+					connections[events[i].data.fd].handleRequest();
+				}
+				catch(const Connection::ConnectionClosed &e)
+				{
+					std::cout << "[INFO] Connection closed by client (FD: " << events[i].data.fd << ")" << std::endl;
+					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+					close(events[i].data.fd);
+					connections.erase(events[i].data.fd);
+				}
+				catch(const std::exception &e)
+				{
+					std::cerr << "[ERROR] Error handling request on FD " << events[i].data.fd << ": " << e.what() << std::endl;
+					close(events[i].data.fd);
+					connections.erase(events[i].data.fd);
+				}
+				
+			}
+
+			if (events[i].events & EPOLLOUT)
+			{
+				// Handle writable events (sending response)
+			}
 		}
 	}
 }
@@ -160,15 +187,7 @@ void Webserv::run()
 	}
 }
 
-Webserv::~Webserv()
-{
-	for (std::map<int, std::vector<Server> >::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
-	{
-		close(it->first);
-	}
-	if (epollFd != -1)
-		close(epollFd);
-}
+Webserv::~Webserv() {}
 
 const char *Webserv::NoEvents::what() const throw()
 {
