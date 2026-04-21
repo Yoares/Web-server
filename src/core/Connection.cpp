@@ -2,7 +2,7 @@
 
 void Connection::handleRequest()
 {
-	char buff[1025];
+	char buff[1024];
 	ssize_t bread;
 
 	bread = recv(_client_fd, buff, sizeof(buff), 0);
@@ -15,6 +15,5 @@ void Connection::handleRequest()
 	{
 		throw std::runtime_error("Error: recv failed.");
 	}
-	buff[bread] = 0;
-	_request.append(buff);
+	_request.append(buff, bread);
 }

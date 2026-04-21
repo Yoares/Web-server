@@ -243,9 +243,9 @@ void HttpRequest::parse()
 	}
 }
 
-void HttpRequest::append(const std::string &buff)
+void HttpRequest::append(const std::string &buff, int size)
 {
-	buffer.append(buff);
+	buffer.append(buff, size);
 	parse();
 }
 

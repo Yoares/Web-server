@@ -31,7 +31,7 @@ class HttpRequest
 	public:
 		HttpRequest();
 		~HttpRequest();
-		void append(const std::string &buff);
+		void append(const std::string &buff, int size);
 		void ShowBuff();
 		
 		// Getter methods for testing
