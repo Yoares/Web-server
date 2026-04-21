@@ -5,7 +5,7 @@
 #include <sys/epoll.h>
 #include "Connection.hpp"
 #include <vector>
-#include "/home/obendaou/Desktop/Web-server/inc/config/Config.hpp"
+#include "../config/Config.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
