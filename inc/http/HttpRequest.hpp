@@ -8,11 +8,15 @@
 #include <cstdlib>
 #include <vector>
 #include <algorithm>
+#include <fstream>
+#include <cstdio>
+#include "../utils/Helpers.hpp"
 
 enum State
 {
 	READING_REQUEST_LINE,
 	READING_HEADERS,
+	HEADERS_COMPLETE,
 	READING_BODY,
 	COMPLETE,
 	ERROR
@@ -31,7 +35,7 @@ class HttpRequest
 	public:
 		HttpRequest();
 		~HttpRequest();
-		void append(const std::string &buff, int size);
+		void append(const char *buff, int size);
 		void ShowBuff();
 		
 		// Getter methods for testing
@@ -44,6 +48,10 @@ class HttpRequest
 		std::map<std::string, std::string> getHeaders() const { return headers; }
 		bool isHttpVersionValid() const { return http_version_valid; }
 		
+
+		void startBodyParsing();
+		void setUploadDir(const std::string& dir) { _upload_dir = dir; }
+
 	private:
 		std::string buffer;
 		State state;
@@ -58,6 +66,13 @@ class HttpRequest
 		size_t offset_;
 		bool found_content_length;
 		bool found_host;
+
+		std::ofstream _body_file;
+		std::string _temp_filename;
+		size_t _body_bytes_read;
+		std::string _upload_dir;
+		static int req_counter;
+
 		void parse();
 		void parseRequestLine();
 		void parseHeaders();

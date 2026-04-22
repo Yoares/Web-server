@@ -110,12 +110,13 @@ std::vector<epoll_event> Webserv::waitforEvents()
 }
 void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 {
+	int fd;
 	for (size_t i = 0; i < events.size(); ++i)
 	{
 		bool isServerSocket = fdToServers.find(events[i].data.fd) != fdToServers.end();
 		if (isServerSocket == true)
 		{
-			int fd = accept(events[i].data.fd, NULL, NULL);
+			fd = accept(events[i].data.fd, NULL, NULL);
 			if (fd == -1)
 				throw std::runtime_error("");
 			struct epoll_event ev;
@@ -127,7 +128,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 		}
 		if (isServerSocket == false && connections.find(events[i].data.fd) == connections.end())
 		{
-			connections.insert(std::make_pair(events[i].data.fd, Connection(events[i].data.fd, fdToServers[events[i].data.fd])));
+			connections.insert(std::make_pair(fd, Connection(fd, fdToServers[events[i].data.fd])));
 		}
 	}
 }

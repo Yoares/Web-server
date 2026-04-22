@@ -26,6 +26,8 @@ class Connection {
 
     private:
         const Server* findCorrectServer(const std::string& host);
+        // ADDED: Find matching location block
+        const Location* findLocation(const Server* server, const std::string& path);
 };
 
 #endif

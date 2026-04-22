@@ -1,5 +1,7 @@
 #include "../../inc/http/HttpRequest.hpp"
 
+int HttpRequest::req_counter = 0;
+
 HttpRequest::HttpRequest()
 {
 	this->buffer = "";
@@ -14,10 +16,16 @@ HttpRequest::HttpRequest()
 	this->headers.clear();
 	this->found_content_length = false;
 	this->found_host = false;
+	this->_body_bytes_read = 0;
+	this->_temp_filename = "/tmp/webserv_body_" + to_string(req_counter) + ".tmp";
+	req_counter++;
 }
 
 HttpRequest::~HttpRequest()
 {
+	if (_body_file.is_open())
+		_body_file.close();
+	std::remove(_temp_filename.c_str());
 }
 void HttpRequest::loadMethod()
 {
@@ -202,6 +210,7 @@ void HttpRequest::parseHeaders()
 		if (method == POST && found_content_length == false)
 		{
 			state = ERROR;
+			std::cerr << "[ERROR] 411 Length Required (Chunked Encoding not supported)" << std::endl;
 			return;
 		}
 		if (method == GET || method == DELETE)
@@ -209,7 +218,7 @@ void HttpRequest::parseHeaders()
 			state = COMPLETE;
 			return;
 		}
-		state = READING_BODY;
+		state = HEADERS_COMPLETE;
 		body_start_pos = pos + 4;
 	}
 }
@@ -222,11 +231,6 @@ void HttpRequest::parse()
 	}
 	if (state == READING_HEADERS)
 		parseHeaders();
-	if (state == READING_BODY)
-	{
-		if (buffer.size() - body_start_pos >= content_length)
-			state = COMPLETE;
-	}
 	if (state == ERROR)
 	{
 		std::cerr << "Error parsing request. Current buffer content:" << std::endl;
@@ -242,11 +246,79 @@ void HttpRequest::parse()
 		std::cout << "---" << std::endl;
 	}
 }
-
-void HttpRequest::append(const std::string &buff, int size)
+void HttpRequest::startBodyParsing()
 {
-	buffer.append(buff, size);
-	parse();
+	if (state != HEADERS_COMPLETE)
+		return ;
+	state = READING_BODY;
+
+	// Open file to stream body
+	_body_file.open(_temp_filename.c_str(), std::ios::binary | std::ios::app);
+	if (!_body_file.is_open())
+	{
+		state = ERROR;
+		std::cerr << "Failed to open temp file for body stream." << std::endl;
+		return;
+	}
+
+	// Write any leftover bytes caught in the header buffer
+	if (buffer.size() > body_start_pos)
+	{
+		size_t leftover_len = buffer.size() - body_start_pos;
+
+		if (_body_bytes_read + leftover_len > content_length)
+		{
+			leftover_len = content_length - _body_bytes_read;
+		}
+
+		_body_file.write(buffer.c_str() + body_start_pos, leftover_len);
+		_body_bytes_read += leftover_len;
+	}
+
+	// Clear the body from RAM buffer to save memory
+	buffer.erase(body_start_pos);
+
+	if (_body_bytes_read >= content_length)
+	{
+		state = COMPLETE;
+		_body_file.close();
+	}
+}
+
+void HttpRequest::append(const char *buff, int size)
+{
+	if (state == ERROR || state == COMPLETE)
+		return;
+	if (state != READING_BODY)
+	{
+		buffer.append(buff, size);
+		if (buffer.size() > 8192 && state != HEADERS_COMPLETE) {
+			state = ERROR;
+			std::cerr << "[ERROR] 431 Request Header Fields Too Large" << std::endl;
+			return;
+		}
+		parse();
+	}
+	else
+	{
+		// Strictly in body phase, stream directly to disk
+		size_t bytes_to_write = size;
+		
+		if (_body_bytes_read + bytes_to_write > content_length) {
+			bytes_to_write = content_length - _body_bytes_read;
+		}
+
+		if (_body_file.is_open()) {
+			_body_file.write(buff, bytes_to_write);
+			_body_bytes_read += bytes_to_write;
+		}
+
+		if (_body_bytes_read >= content_length) {
+			state = COMPLETE;
+			_body_file.close();
+			std::cout << "[INFO] Successfully streamed large body to " << _temp_filename << std::endl;
+		}
+	}
 }
 
 void HttpRequest::ShowBuff()
