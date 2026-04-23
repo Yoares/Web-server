@@ -17,10 +17,10 @@ INC_DIR     = inc
 
 # Core Files
 MAIN_SRC    = main.cpp
-#CORE_SRCS   = core/Webserv.cpp core/Connection.cpp
+CORE_SRCS   = core/Webserv.cpp core/Connection.cpp
 CONF_SRCS   = config/Config.cpp config/ServerBlock.cpp config/LocationBlock.cpp \
               config/Tokenizer.cpp config/ConfigParser.cpp config/ConfigValidator.cpp
-#HTTP_SRCS   = http/HttpRequest.cpp http/HttpResponse.cpp
+HTTP_SRCS   = http/HttpRequest.cpp http/HttpResponse.cpp
 #CGI_SRCS    = cgi/CgiHandler.cpp
 #UTIL_SRCS   = utils/Logger.cpp
 
