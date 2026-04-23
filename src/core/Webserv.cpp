@@ -1,5 +1,7 @@
 #include "../../inc/core/Webserv.hpp"
 
+extern bool g_server_running;
+
 Webserv::Webserv(const std::vector<Server> &servers) : epollFd(-1)
 {
 	std::cout << "[INFO] Initializing Webserv..." << std::endl;
@@ -99,7 +101,11 @@ std::vector<epoll_event> Webserv::waitforEvents()
 	std::vector<epoll_event> events(10);
 	int ready = epoll_wait(epollFd, events.data(), 10, 10000);
 	if (ready == -1)
+	{
+		if (errno == EINTR) 
+			throw NoEvents();
 		throw std::runtime_error("Fatal Error: epoll_wait failed.");
+	}
 	else if (ready == 0)
 		throw NoEvents();
 	else
@@ -200,7 +206,7 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 
 void Webserv::run()
 {
-	while (true)
+	while (g_server_running)
 	{
 		std::vector<epoll_event> events;
 		try
