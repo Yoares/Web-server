@@ -110,25 +110,28 @@ std::vector<epoll_event> Webserv::waitforEvents()
 }
 void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 {
-	int fd;
 	for (size_t i = 0; i < events.size(); ++i)
 	{
 		bool isServerSocket = fdToServers.find(events[i].data.fd) != fdToServers.end();
 		if (isServerSocket == true)
 		{
-			fd = accept(events[i].data.fd, NULL, NULL);
-			if (fd == -1)
-				throw std::runtime_error("");
+			int client_fd = accept(events[i].data.fd, NULL, NULL);
+			if (client_fd == -1)
+			{
+				std::cerr << "[ERROR] accept() failed." << std::endl;
+				continue;
+			}
 			struct epoll_event ev;
 			std::memset(&ev, 0, sizeof(ev));
 			ev.events = EPOLLIN | EPOLLOUT;
-			ev.data.fd = fd;
-			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, fd, &ev) == -1)
-				throw std::runtime_error("Fatal Error: epoll_ctl failed.");
-		}
-		if (isServerSocket == false && connections.find(events[i].data.fd) == connections.end())
-		{
-			connections.insert(std::make_pair(fd, Connection(fd, fdToServers[events[i].data.fd])));
+			ev.data.fd = client_fd;
+
+			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
+			{
+				close(client_fd);
+				continue;
+			}
+			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd])));
 		}
 	}
 }
@@ -146,20 +149,19 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 				{
 					connections[events[i].data.fd].handleRequest();
 				}
-				catch(const Connection::ConnectionClosed &e)
+				catch (const Connection::ConnectionClosed &e)
 				{
 					std::cout << "[INFO] Connection closed by client (FD: " << events[i].data.fd << ")" << std::endl;
 					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
 					close(events[i].data.fd);
 					connections.erase(events[i].data.fd);
 				}
-				catch(const std::exception &e)
+				catch (const std::exception &e)
 				{
 					std::cerr << "[ERROR] Error handling request on FD " << events[i].data.fd << ": " << e.what() << std::endl;
 					close(events[i].data.fd);
 					connections.erase(events[i].data.fd);
 				}
-				
 			}
 
 			if (events[i].events & EPOLLOUT)
