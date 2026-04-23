@@ -15,6 +15,9 @@ void Connection::handleRequest()
 	{
 		throw std::runtime_error("Error: recv failed.");
 	}
+
+	updateActivity();
+	
 	_request.append(buff, bread);
 	if (_request.getState() == HEADERS_COMPLETE)
 	{

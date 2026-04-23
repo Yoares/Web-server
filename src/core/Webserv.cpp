@@ -97,7 +97,7 @@ Webserv::Webserv(const std::vector<Server> &servers) : epollFd(-1)
 std::vector<epoll_event> Webserv::waitforEvents()
 {
 	std::vector<epoll_event> events(10);
-	int ready = epoll_wait(epollFd, events.data(), 10, 0);
+	int ready = epoll_wait(epollFd, events.data(), 10, 10000);
 	if (ready == -1)
 		throw std::runtime_error("Fatal Error: epoll_wait failed.");
 	else if (ready == 0)
@@ -107,6 +107,31 @@ std::vector<epoll_event> Webserv::waitforEvents()
 		events.resize(ready);
 		return events;
 	}
+}
+
+void Webserv::checkTimeouts()
+{
+    time_t current_time = time(NULL);
+    const int TIMEOUT_LIMIT = 60; // Set timeout limit (e.g., 60 seconds)
+
+    std::map<int, Connection>::iterator it = connections.begin();
+    while (it != connections.end())
+    {
+        // Check if the connection has been idle for longer than TIMEOUT_LIMIT
+        if (current_time - it->second.getLastActivity() > TIMEOUT_LIMIT)
+        {
+            std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
+            
+            // Clean up sockets
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
+            close(it->first);
+            
+            // C++98 TRICK: Safely erase the current item and move iterator forward.
+            // If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
+            connections.erase(it); 
+        }
+		it++;
+    }
 }
 void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 {
@@ -184,10 +209,12 @@ void Webserv::run()
 		}
 		catch (const NoEvents &e)
 		{
+			checkTimeouts();
 			continue;
 		}
 		acceptConnections(events);
 		handleConnections(events);
+		checkTimeouts();
 	}
 }
 
