@@ -140,27 +140,28 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 {
 	for (size_t i = 0; i < events.size(); ++i)
 	{
-		if (connections.find(events[i].data.fd) != connections.end())
+		std::map<int, Connection>::iterator it = connections.find(events[i].data.fd);
+		if (it != connections.end())
 		{
-			Connection &conn = connections[events[i].data.fd];
+			Connection &conn = it->second;
 			if (events[i].events & EPOLLIN)
 			{
 				try
 				{
-					connections[events[i].data.fd].handleRequest();
+					conn.handleRequest();
 				}
 				catch (const Connection::ConnectionClosed &e)
 				{
 					std::cout << "[INFO] Connection closed by client (FD: " << events[i].data.fd << ")" << std::endl;
 					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
 					close(events[i].data.fd);
-					connections.erase(events[i].data.fd);
+					connections.erase(it);
 				}
 				catch (const std::exception &e)
 				{
 					std::cerr << "[ERROR] Error handling request on FD " << events[i].data.fd << ": " << e.what() << std::endl;
 					close(events[i].data.fd);
-					connections.erase(events[i].data.fd);
+					connections.erase(it);
 				}
 			}
 
