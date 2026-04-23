@@ -131,7 +131,7 @@ void HttpRequest::loadPathAndQuery()
 {
 	size_t path_end = buffer.find(' ', offset_);
 	size_t query_pos = buffer.find('?', offset_);
-	if (query_pos != std::string::npos && query_pos < path_end)
+	if (query_pos != std::string::npos && path_end != std::string::npos && query_pos < path_end)
 	{
 		query_string = buffer.substr(query_pos + 1, path_end - query_pos - 1);
 		path_end = query_pos;
@@ -140,6 +140,11 @@ void HttpRequest::loadPathAndQuery()
 	{
 		http_version_valid = false;
 		state = ERROR;
+		return;
+	}
+	if (query_pos == std::string::npos)
+	{
+		query_string = "";
 	}
 	path = buffer.substr(offset_, path_end - offset_);
 	offset_ = path_end + 1;
