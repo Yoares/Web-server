@@ -23,8 +23,6 @@ HttpRequest::HttpRequest()
 
 HttpRequest::~HttpRequest()
 {
-	if (_body_file.is_open())
-		_body_file.close();
 	std::remove(_temp_filename.c_str());
 }
 void HttpRequest::loadMethod()
@@ -252,15 +250,6 @@ void HttpRequest::startBodyParsing()
 		return ;
 	state = READING_BODY;
 
-	// Open file to stream body
-	_body_file.open(_temp_filename.c_str(), std::ios::binary | std::ios::app);
-	if (!_body_file.is_open())
-	{
-		state = ERROR;
-		std::cerr << "Failed to open temp file for body stream." << std::endl;
-		return;
-	}
-
 	// Write any leftover bytes caught in the header buffer
 	if (buffer.size() > body_start_pos)
 	{
@@ -271,7 +260,15 @@ void HttpRequest::startBodyParsing()
 			leftover_len = content_length - _body_bytes_read;
 		}
 
-		_body_file.write(buffer.c_str() + body_start_pos, leftover_len);
+		std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
+		if (file.is_open()) {
+			file.write(buffer.c_str() + body_start_pos, leftover_len);
+			file.close();
+		} else {
+			state = ERROR;
+			std::cerr << "Failed to open temp file for body stream." << std::endl;
+			return;
+		}
 		_body_bytes_read += leftover_len;
 	}
 
@@ -279,10 +276,7 @@ void HttpRequest::startBodyParsing()
 	buffer.erase(body_start_pos);
 
 	if (_body_bytes_read >= content_length)
-	{
 		state = COMPLETE;
-		_body_file.close();
-	}
 }
 
 void HttpRequest::append(const char *buff, int size)
@@ -308,14 +302,20 @@ void HttpRequest::append(const char *buff, int size)
 			bytes_to_write = content_length - _body_bytes_read;
 		}
 
-		if (_body_file.is_open()) {
-			_body_file.write(buff, bytes_to_write);
+		std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
+		if (file.is_open()) {
+			file.write(buff, bytes_to_write);
+			file.close();
 			_body_bytes_read += bytes_to_write;
+		}
+		else {
+			state = ERROR;
+			std::cerr << "Failed to open temp file for body stream." << std::endl;
+			return;
 		}
 
 		if (_body_bytes_read >= content_length) {
 			state = COMPLETE;
-			_body_file.close();
 			std::cout << "[INFO] Successfully streamed large body to " << _temp_filename << std::endl;
 		}
 	}

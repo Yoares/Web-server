@@ -67,7 +67,6 @@ class HttpRequest
 		bool found_content_length;
 		bool found_host;
 
-		std::ofstream _body_file;
 		std::string _temp_filename;
 		size_t _body_bytes_read;
 		std::string _upload_dir;
