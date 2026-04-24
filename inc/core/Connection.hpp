@@ -7,6 +7,7 @@
 #include <exception>
 #include <ctime>
 #include "../config/Config.hpp"
+#include "../http/HttpResponse.hpp"
 
 class Connection {
     private:
@@ -14,19 +15,27 @@ class Connection {
         std::vector<Server> _possible_servers;
         const Server* _matched_server; // Starts as NULL
         HttpRequest _request;
+		
 		time_t _last_activity;
         const Location* matched_location;
-        // HttpResponse _response;
 
         // --- THE HTTP METHOD ROUTING ---
         void handleGet(const Location& loc);
         void handlePost(const Location& loc);
         void handleDelete(const Location& loc);
 
+		HttpResponse _response;
+        
+        std::string _header_buffer;   // Holds the built headers
+        size_t _headers_sent;         // Tracks header bytes sent
+        size_t _body_sent;            // Tracks body bytes sent
+        bool _is_response_ready;
 
     public:
         Connection(int fd, const std::vector<Server>& servers) 
-            : _client_fd(fd), _possible_servers(servers), _matched_server(NULL) {}
+            : _client_fd(fd), _possible_servers(servers), _matched_server(NULL), 
+              _last_activity(time(NULL)), matched_location(NULL), 
+              _headers_sent(0), _body_sent(0), _is_response_ready(false) {}
 		void handleRequest();
 
 		time_t getLastActivity() const { return _last_activity; }
@@ -38,6 +47,8 @@ class Connection {
 			public:
 				const char* what() const throw();
 		};
+		bool isResponseReady() const { return _is_response_ready; }
+        void sendResponse();
 
     private:
         const Server* findCorrectServer(const std::string& host);

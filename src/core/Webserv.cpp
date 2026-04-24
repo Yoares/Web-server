@@ -136,7 +136,8 @@ void Webserv::checkTimeouts()
             // If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
             connections.erase(it); 
         }
-		it++;
+		else
+			it++;
     }
 }
 void Webserv::acceptConnections(const std::vector<epoll_event> &events)
@@ -154,7 +155,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 			}
 			struct epoll_event ev;
 			std::memset(&ev, 0, sizeof(ev));
-			ev.events = EPOLLIN | EPOLLOUT;
+			ev.events = EPOLLIN;
 			ev.data.fd = client_fd;
 
 			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
@@ -194,11 +195,20 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 					close(events[i].data.fd);
 					connections.erase(it);
 				}
+				if (conn.isResponseReady())
+				{
+					struct epoll_event ev;
+					std::memset(&ev, 0, sizeof(ev));
+					ev.events = EPOLLOUT;
+					ev.data.fd = events[i].data.fd;
+					if (epoll_ctl(epollFd, EPOLL_CTL_MOD, events[i].data.fd, &ev) == -1) {
+							throw std::runtime_error("Error modifying epoll to EPOLLOUT");
+						}
+				}
 			}
-
 			if (events[i].events & EPOLLOUT)
 			{
-				// Handle writable events (sending response)
+				conn.sendResponse();
 			}
 		}
 	}
@@ -224,7 +234,26 @@ void Webserv::run()
 	}
 }
 
-Webserv::~Webserv() {}
+Webserv::~Webserv() 
+{
+	std::cout << "[INFO] Cleaning up resources..." << std::endl;
+
+	for (std::map<int, Connection>::iterator it = connections.begin(); it != connections.end(); ++it) {
+		close(it->first);
+	}
+	connections.clear();
+
+	for (std::map<int, std::vector<Server> >::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it) {
+		close(it->first);
+	}
+	fdToServers.clear();
+
+	if (epollFd != -1) {
+		close(epollFd);
+	}
+	
+	std::cout << "[INFO] Server shutdown complete." << std::endl;
+}
 
 const char *Webserv::NoEvents::what() const throw()
 {

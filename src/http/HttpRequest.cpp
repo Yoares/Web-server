@@ -19,6 +19,7 @@ HttpRequest::HttpRequest()
 	this->_body_bytes_read = 0;
 	this->_temp_filename = "/tmp/webserv_body_" + to_string(req_counter) + ".tmp";
 	req_counter++;
+	this->_error_code = 200;
 }
 
 HttpRequest::~HttpRequest()
@@ -52,6 +53,7 @@ void HttpRequest::setHeaderName(size_t start, size_t end, std::string &header_na
 	if (header_name.empty())
 	{
 		state = ERROR;
+		_error_code = 400; // Bad Request
 		headers.clear();
 		std::cout << "Header parsing error: Empty header name." << std::endl;
 		return;
@@ -61,6 +63,7 @@ void HttpRequest::setHeaderName(size_t start, size_t end, std::string &header_na
 		if (header_name[i] >= 127 || header_name[i] <= 32)
 		{
 			state = ERROR;
+			_error_code = 400;
 			headers.clear();
 			std::cout << "Header parsing error: Invalid character in header name. \'" << header_name[i] << "\'" << std::endl;
 			return;
@@ -81,6 +84,7 @@ void HttpRequest::setHeaderValue(size_t start, size_t end, std::string &header_v
 		if (header_value[i] >= 127 || (header_value[i] <= 31 && header_value[i] != '\t'))
 		{
 			state = ERROR;
+			_error_code = 400;
 			headers.clear();
 			std::cout << "Header parsing error: Invalid character in header value." << std::endl;
 			return;
@@ -100,6 +104,7 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 		if (colon_pos == std::string::npos || colon_pos < header_start)
 		{
 			state = ERROR;
+			_error_code = 400;
 			headers.clear();
 			std::cout << "Header parsing error: No colon found in header line." << std::endl;
 			return;
@@ -140,6 +145,7 @@ void HttpRequest::loadPathAndQuery()
 	{
 		http_version_valid = false;
 		state = ERROR;
+		_error_code = 400;
 		return;
 	}
 	if (query_pos == std::string::npos)
@@ -158,6 +164,7 @@ void HttpRequest::checkHttpVersion()
 	{
 		http_version_valid = false;
 		state = ERROR;
+		_error_code = 505;
 	}
 }
 
@@ -170,12 +177,14 @@ void HttpRequest::parseRequestLine()
 		if (method == UNKNOWN)
 		{
 			state = ERROR;
+			_error_code = 501;
 			return;
 		}
 		if (buffer[offset_] != ' ')
 		{
 			method = UNKNOWN;
 			state = ERROR;
+			_error_code = 400;
 			return;
 		}
 		offset_++;
@@ -190,6 +199,7 @@ void HttpRequest::parseRequestLine()
 		{
 			path = "ERROR";
 			state = ERROR;
+			_error_code = 400;
 			return;
 		}
 		checkHttpVersion();
@@ -209,10 +219,15 @@ void HttpRequest::parseHeaders()
 		if (state == ERROR)
 			return;
 		if (found_host == false)
+		{
+			state = ERROR;
+			_error_code = 400;
 			return;
+		}
 		if (method == POST && found_content_length == false)
 		{
 			state = ERROR;
+			_error_code = 411;
 			std::cerr << "[ERROR] 411 Length Required (Chunked Encoding not supported)" << std::endl;
 			return;
 		}
@@ -270,6 +285,7 @@ void HttpRequest::startBodyParsing()
 			file.write(buffer.c_str() + body_start_pos, leftover_len);
 			file.close();
 		} else {
+			_error_code = 500;
 			state = ERROR;
 			std::cerr << "Failed to open temp file for body stream." << std::endl;
 			return;
@@ -293,6 +309,7 @@ void HttpRequest::append(const char *buff, int size)
 		buffer.append(buff, size);
 		if (buffer.size() > 8192 && state != HEADERS_COMPLETE) {
 			state = ERROR;
+			_error_code = 431;
 			std::cerr << "[ERROR] 431 Request Header Fields Too Large" << std::endl;
 			return;
 		}
@@ -315,6 +332,7 @@ void HttpRequest::append(const char *buff, int size)
 		}
 		else {
 			state = ERROR;
+			_error_code = 500;
 			std::cerr << "Failed to open temp file for body stream." << std::endl;
 			return;
 		}

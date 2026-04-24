@@ -1,5 +1,87 @@
 #include "../../inc/core/Connection.hpp"
 
+const char* Connection::ConnectionClosed::what() const throw() {
+    return "Connection closed safely.";
+}
+
+// --- HTTP Method Placeholders ---
+void Connection::handleGet(const Location& loc) {
+   //
+   (void)loc; // Avoid unused parameter warning
+}
+
+void Connection::handlePost(const Location& loc) {
+  //
+  (void)loc; // Avoid unused parameter warning
+}
+
+void Connection::handleDelete(const Location& loc) {
+  //
+  (void)loc; // Avoid unused parameter warning
+}
+
+void Connection::sendResponse()
+{
+    // PHASE 1: Send Headers
+    if (_headers_sent < _header_buffer.length()) 
+    {
+        size_t bytes_left = _header_buffer.length() - _headers_sent;
+        ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, 0);
+        
+        if (sent == -1) throw std::runtime_error("Error sending headers.");
+        
+        _headers_sent += sent;
+        updateActivity();
+        return; // Return and wait for the next EPOLLOUT event
+    }
+
+    // PHASE 2: Send Body
+    if (_response.isFile()) 
+    {
+        // It's a large file. Open-on-demand to avoid copy-constructor crashes!
+        std::ifstream file(_response.getFilePath().c_str(), std::ios::binary);
+        if (!file.is_open()) throw std::runtime_error("Failed to open response file.");
+
+        // Jump to exactly where we left off
+        file.seekg(_body_sent);
+
+        // Read an 8KB chunk
+        char chunk[8192];
+        file.read(chunk, sizeof(chunk));
+        size_t bytes_read = file.gcount();
+        file.close();
+
+        // Send the chunk over the socket
+        if (bytes_read > 0) {
+            ssize_t sent = send(_client_fd, chunk, bytes_read, 0);
+            if (sent == -1) throw std::runtime_error("Error sending file chunk.");
+            _body_sent += sent;
+            updateActivity();
+        }
+
+        // Check if we are totally finished
+        if (_body_sent >= _response.getFileSize()) {
+            throw ConnectionClosed(); // Closes the socket safely
+        }
+    } 
+    else 
+    {
+        // It's a small string body (like an error page HTML)
+        const std::string& body = _response.getBody();
+        size_t bytes_left = body.length() - _body_sent;
+        
+        ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, 0);
+        if (sent == -1) throw std::runtime_error("Error sending string body.");
+        
+        _body_sent += sent;
+        updateActivity();
+
+        if (_body_sent >= body.length()) {
+            throw ConnectionClosed(); // Closes the socket safely
+        }
+    }
+}
+
 void Connection::handleRequest()
 {
 	char buff[1024];
@@ -28,8 +110,10 @@ void Connection::handleRequest()
 			// Check server-level client_max_body_size
 			if (_request.getContentLength() > _matched_server->client_max_body_size)
 			{
-				std::cerr << "[ERROR] 413 Payload Too Large" << std::endl;
-				// TODO: Send 413 error response to client, then throw or return
+				_response.buildErrorResponse(413, _matched_server->error_pages);
+				_header_buffer = _response.getHeadersAsString();
+				_is_response_ready = true;
+				return; // STOP EXECUTION! Do not parse body.
 			}
 
 			matched_location = findLocation(_matched_server, _request.getPath());
@@ -59,6 +143,20 @@ void Connection::handleRequest()
             handleDelete(*matched_location);
         }
     }
+	if (_request.getState() == ERROR)
+	{
+		std::map<int, std::string> err_pages;
+		if (_matched_server) {
+			err_pages = _matched_server->error_pages;
+		}
+		
+		// Build the HTTP Error response (e.g., 400 Bad Request)
+		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
+		_header_buffer = _response.getHeadersAsString();
+		_is_response_ready = true;
+		
+		return; // STOP EXECUTION! Do not parse headers or bodies.
+	}
 }
 
 const Server *Connection::findCorrectServer(const std::string &host)

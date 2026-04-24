@@ -51,6 +51,7 @@ class HttpRequest
 
 		void startBodyParsing();
 		void setUploadDir(const std::string& dir) { _upload_dir = dir; }
+		int getErrorCode() const { return _error_code; }
 
 	private:
 		std::string buffer;
@@ -71,6 +72,7 @@ class HttpRequest
 		size_t _body_bytes_read;
 		std::string _upload_dir;
 		static int req_counter;
+		int _error_code;
 
 		void parse();
 		void parseRequestLine();
