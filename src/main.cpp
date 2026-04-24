@@ -9,7 +9,19 @@
 #include "../inc/config/ConfigValidator.hpp"
 
 // Placeholder for the next phase
-// #include "../inc/core/Webserv.hpp" 
+#include "../inc/core/Webserv.hpp" 
+
+#include <csignal> // ADDED for signal handling
+
+bool g_server_running = true;
+
+// Signal handler function
+void handle_sigint(int sig)
+{
+    (void)sig; // suppress unused parameter warning
+    std::cout << "\n[INFO] SIGINT (Ctrl+C) received. Shutting down gracefully..." << std::endl;
+    g_server_running = false;
+}
 
 int main(int argc, char **argv) {
     // 1. Determine the config file path
@@ -46,7 +58,11 @@ int main(int argc, char **argv) {
         // engine.start(); 
 
         std::cout << "[INFO] (Placeholder) Server would now start listening..." << std::endl;
-
+		// 3. Set up signal handling for graceful shutdown
+		signal(SIGINT, handle_sigint);
+		
+		Webserv engine(servers);
+		engine.run(); // This will run until g_server_running becomes false (e.g., on SIGINT)
     } 
     catch (const std::exception& e) {
         // If the Tokenizer, Parser, or Validator throws a std::runtime_error, it lands here.
