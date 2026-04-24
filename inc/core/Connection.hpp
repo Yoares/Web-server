@@ -23,6 +23,7 @@ class Connection {
         void handleGet(const Location& loc);
         void handlePost(const Location& loc);
         void handleDelete(const Location& loc);
+        std::string resolvePhysicalPath(const std::string& request_uri, const Location& loc);
 
 		HttpResponse _response;
         
