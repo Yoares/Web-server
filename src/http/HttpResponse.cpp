@@ -31,7 +31,13 @@ std::string HttpResponse::getReasonPhrase(int code) const {
     switch (code) {
         case 200: return "OK";
         case 404: return "Not Found";
-        // ... (Include your other status codes here)
+		case 413: return "Payload Too Large";
+		case 400: return "Bad Request";
+		case 500: return "Internal Server Error";
+		case 505: return "HTTP Version Not Supported";
+		case 501: return "Not Implemented";
+		case 411: return "Length Required";
+		case 431: return "Request Header Fields Too Large";
         default:  return "Unknown Error";
     }
 }

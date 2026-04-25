@@ -89,14 +89,9 @@ void Connection::handleRequest()
 
 	bread = recv(_client_fd, buff, sizeof(buff), 0);
 	if (bread == 0)
-	{
 		throw ConnectionClosed();
-		return;
-	}
 	if (bread == -1)
-	{
 		throw std::runtime_error("Error: recv failed.");
-	}
 
 	updateActivity();
 	
@@ -131,9 +126,13 @@ void Connection::handleRequest()
 	if (_request.getState() == COMPLETE) 
     {
         // Failsafe check
-        if (matched_location == NULL) {
-            throw std::runtime_error("404 Not Found"); 
-        }
+        if (matched_location == NULL) 
+		{
+			_response.buildErrorResponse(404, _matched_server->error_pages);
+			_header_buffer = _response.getHeadersAsString();
+			_is_response_ready = true;
+			return;
+		}
 
         if (_request.getMethod() == GET) {
             handleGet(*matched_location);
