@@ -69,7 +69,7 @@ void ConfigValidator::validate_location(const Location& loc) {
     }
 
     // 4. Validate Upload Directory
-    if (!is_directory(loc.upload_dir)) {
+    if (!loc.upload_dir.empty() && !is_directory(loc.upload_dir)) {
         throw std::runtime_error("Validation Error: Upload directory does not exist: " + loc.upload_dir);
     }
 }
@@ -78,11 +78,10 @@ void ConfigValidator::validate_location(const Location& loc) {
 
 bool ConfigValidator::is_directory(const std::string& path) {
     struct stat info;
-    // stat() returns 0 on success. S_ISDIR checks the bitmask.
     if (stat(path.c_str(), &info) != 0) {
         return false;
     }
-    return (info.st_mode & S_IFDIR) != 0;
+    return S_ISDIR(info.st_mode); // <-- Cleaner, standard POSIX macro
 }
 
 bool ConfigValidator::is_file_accessible(const std::string& path, int mode) {

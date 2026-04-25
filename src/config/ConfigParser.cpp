@@ -1,19 +1,20 @@
 #include "../../inc/config/ConfigParser.hpp"
-#include <cstdlib> // For atoi()
+#include <cstdlib>   // For atoi()
+#include <stdexcept> // For std::runtime_error
 
-ConfigParser::ConfigParser(const std::vector<std::string>& tokens) : _tokens(tokens) {};
+// Initialize _pos to 0
+ConfigParser::ConfigParser(const std::vector<std::string>& tokens) : _tokens(tokens), _pos(0) {}
 
-std::string ConfigParser::consume(){
-    if (_pos >= _tokens.size())
-    {
+std::string ConfigParser::consume() {
+    if (_pos >= _tokens.size()) {
         throw std::runtime_error("Config Error: Unexpected end of file.");
     }
     return _tokens[_pos++];
 }
 
 void ConfigParser::expect(const std::string& expected) {
-    if (consume() != expected){
-        throw std::runtime_error("Config Syntax Error: Expected '" + expected + "' near token position " + "in file.");
+    if (consume() != expected) {
+        throw std::runtime_error("Config Syntax Error: Expected '" + expected + "' near token position in file.");
     } 
 }
 
@@ -21,14 +22,15 @@ void ConfigParser::expect(const std::string& expected) {
 std::vector<Server> ConfigParser::parse() {
     std::vector<Server> servers;
 
-    while(_pos < _tokens.size()){
+    while (_pos < _tokens.size()) {
         std::string token = consume();
-        if (token == "server"){
+        if (token == "server") {
             servers.push_back(parse_server());
         } else {
             throw std::runtime_error("Config Syntax Error: Unknown directive '" + token + "' outside of server block.");
         }
     }
+    
     if (servers.empty()) {
         throw std::runtime_error("Config Error: No server blocks found.");
     }
@@ -45,26 +47,42 @@ Server ConfigParser::parse_server() {
         std::string directive = consume();
 
         if (directive == "listen") {
-            std::string port_str = consume();
-            int parsed_port = std::atoi(port_str.c_str());
-            srv.listen_list.push_back(ListenParams("0.0.0.0", parsed_port));
+            // Safely parse IP:Port or just Port
+            std::string listen_val = consume();
+            std::string ip = "0.0.0.0"; // Default
+            int port = 80;              // Default
+
+            size_t colon_pos = listen_val.find(':');
+            if (colon_pos != std::string::npos) {
+                // Format is IP:Port (e.g., "127.0.0.1:8080")
+                ip = listen_val.substr(0, colon_pos);
+                port = std::atoi(listen_val.substr(colon_pos + 1).c_str());
+            } else {
+                // Format is just Port (e.g., "8080")
+                port = std::atoi(listen_val.c_str());
+            }
+
+            srv.listen_list.push_back(ListenParams(ip, port));
             expect(";");
         }
-        else if (directive == "server_name"){
-            srv.server_names.push_back(consume());
+        else if (directive == "server_name") {
+            // Handle multiple domains (e.g., server_name a.com b.com;)
+            while (_pos < _tokens.size() && _tokens[_pos] != ";") {
+                srv.server_names.push_back(consume());
+            }
             expect(";");
         }
-        else if (directive == "client_max_body_size"){
+        else if (directive == "client_max_body_size") {
             srv.client_max_body_size = (size_t)std::atoi(consume().c_str());
             expect(";");
         }
-        else if (directive == "error_page"){
+        else if (directive == "error_page") {
             int code = std::atoi(consume().c_str());
             std::string page = consume();
             srv.error_pages[code] = page;
             expect(";");
         }
-        else if (directive ==  "location"){
+        else if (directive == "location") {
             srv.locations.push_back(parse_location());
         }
         else {
@@ -86,41 +104,38 @@ Location ConfigParser::parse_location() {
     while (_pos < _tokens.size() && _tokens[_pos] != "}") {
         std::string directive = consume();
         
-        if (directive == "root"){
+        if (directive == "root") {
             loc.root = consume();
             expect(";");
         }
-        else if (directive == "index"){
+        else if (directive == "index") {
             loc.index = consume();
             expect(";");
         }
-        else if (directive == "autoindex"){
+        else if (directive == "autoindex") {
             std::string val = consume();
             loc.autoindex = (val == "on");
             expect(";");
         }
-        else if (directive == "allow_methods"){
-            // allow_methods can have multiple values before the semicolon
+        else if (directive == "allow_methods") {
             while (_pos < _tokens.size() && _tokens[_pos] != ";") {
                 loc.allowed_methods.push_back(consume());
             }
             expect(";");
         }
-        else if (directive == "cgi_pass"){
+        else if (directive == "cgi_pass") {
             std::string ext = consume();
             std::string bin = consume();
             loc.cgi_pass[ext] = bin;
             expect(";");
         }
-
         else if (directive == "upload_dir" || directive == "upload_store") {
             loc.upload_dir = consume();
             expect(";");
         }
         else if (directive == "return" || directive == "redirect") {
-            // NGINX uses 'return' for redirects, e.g., "return 301 /new_path;"
-            loc.redirect_code = std::atoi(consume().c_str()); // Grab the 301
-            loc.redirect_url = consume();                     // Grab the /new_path
+            loc.redirect_code = std::atoi(consume().c_str()); 
+            loc.redirect_url = consume();                     
             expect(";");
         }
         else {
