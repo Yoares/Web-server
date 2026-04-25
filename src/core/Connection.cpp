@@ -5,10 +5,10 @@ const char* Connection::ConnectionClosed::what() const throw() {
 }
 
 // --- HTTP Method Placeholders ---
-void Connection::handleGet(const Location& loc) {
-   //
-   (void)loc; // Avoid unused parameter warning
-}
+// void Connection::handleGet(const Location& loc) {
+//    //
+//    (void)loc; // Avoid unused parameter warning
+// }
 
 void Connection::handlePost(const Location& loc) {
   //
