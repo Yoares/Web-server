@@ -155,10 +155,26 @@ void Connection::handleRequest()
         // Failsafe check
         if (matched_location == NULL) 
 		{
-			_response.buildErrorResponse(404, _matched_server->error_pages);
-			_header_buffer = _response.getHeadersAsString();
-			_is_response_ready = true;
-			return;
+			_matched_server = findCorrectServer(_request.getHost());
+
+			if (_matched_server)
+			{
+				// Check server-level client_max_body_size
+				if (_request.getContentLength() > _matched_server->client_max_body_size)
+				{
+					_response.buildErrorResponse(413, _matched_server->error_pages);
+					_header_buffer = _response.getHeadersAsString();
+					_is_response_ready = true;
+					return; // STOP EXECUTION! Do not parse body.
+				}
+
+				matched_location = findLocation(_matched_server, _request.getPath());
+
+				if (matched_location)
+				{
+					_request.setUploadDir(matched_location->upload_dir);
+				}
+			}
 		}
 
         if (_request.getMethod() == GET) {
