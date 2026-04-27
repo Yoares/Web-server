@@ -20,6 +20,114 @@ HttpRequest::HttpRequest()
 	this->_temp_filename = "/tmp/webserv_body_" + to_string(req_counter) + ".tmp";
 	req_counter++;
 	this->_error_code = 200;
+	_is_chunked = false;
+	_chunk_state = 0;
+	_chunk_bytes_left = 0;
+	_is_last_chunk = false;
+}
+
+void HttpRequest::parseChunkedBody()
+{
+	while (!buffer.empty() && state == READING_BODY)
+	{
+		// STATE 0: Read the Hex Size
+		if (_chunk_state == 0)
+		{
+			size_t pos = buffer.find("\r\n");
+			if (pos == std::string::npos)
+			{
+				// Protect against malicious infinite strings without \r\n
+				if (buffer.length() > 100)
+				{
+					_error_code = 400;
+					state = ERROR;
+				}
+				return; // Wait for more data
+			}
+
+			std::string hex_str = buffer.substr(0, pos);
+
+			// Clean up optional chunk extensions (e.g., "A;ext=1\r\n")
+			size_t semi_pos = hex_str.find(';');
+			if (semi_pos != std::string::npos)
+				hex_str = hex_str.substr(0, semi_pos);
+
+			// Convert hex string to integer
+			char *end;
+			long val = std::strtol(hex_str.c_str(), &end, 16);
+			if (*end != '\0' && *end != ' ' && *end != '\t')
+			{
+				_error_code = 400;
+				state = ERROR;
+				return; // Bad hex format
+			}
+
+			_chunk_bytes_left = val;
+			if (_chunk_bytes_left == 0)
+				_is_last_chunk = true;
+
+			buffer.erase(0, pos + 2); // Remove the size line and \r\n from RAM
+
+			_chunk_state = (_chunk_bytes_left == 0) ? 2 : 1; // If 0, go to Trailer. Else, Data.
+		}
+		// STATE 1: Stream the Data directly to Disk
+		else if (_chunk_state == 1)
+		{
+			size_t to_write = std::min(buffer.length(), _chunk_bytes_left);
+			if (to_write > 0)
+			{
+				std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
+				if (!file.is_open())
+				{
+					_error_code = 500;
+					state = ERROR;
+					return;
+				}
+
+				file.write(buffer.c_str(), to_write);
+				file.close();
+
+				buffer.erase(0, to_write);
+				_chunk_bytes_left -= to_write;
+				content_length += to_write; // Increment total known size dynamically!
+			}
+
+			if (_chunk_bytes_left == 0)
+			{
+				_chunk_state = 2; // Data finished, wait for trailing \r\n
+			}
+			else
+			{
+				return; // Socket chunk ended, wait for next EPOLLIN to get more data
+			}
+		}
+		// STATE 2: Consume the trailing \r\n
+		else if (_chunk_state == 2)
+		{
+			if (buffer.length() < 2)
+				return; // Wait for full \r\n
+
+			if (buffer[0] == '\r' && buffer[1] == '\n')
+			{
+				buffer.erase(0, 2);
+				if (_is_last_chunk)
+				{
+					state = COMPLETE; // We finished decoding the entire stream!
+					return;
+				}
+				else
+				{
+					_chunk_state = 0; // Loop back around to read the next chunk size
+				}
+			}
+			else
+			{
+				_error_code = 400;
+				state = ERROR;
+				return; // Protocol violation
+			}
+		}
+	}
 }
 
 HttpRequest::~HttpRequest()
@@ -128,6 +236,11 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 			content_length = std::atol(header_value.c_str());
 			found_content_length = true;
 		}
+		// --- ADD THIS BLOCK ---
+		else if (header_name == "transfer-encoding" && header_value == "chunked")
+		{
+			_is_chunked = true;
+		}
 		i = header_end + 2;
 	}
 }
@@ -224,7 +337,12 @@ void HttpRequest::parseHeaders()
 			_error_code = 400;
 			return;
 		}
-		if (method == POST && found_content_length == false)
+		if (_is_chunked && found_content_length)
+		{
+			found_content_length = false;
+			content_length = 0; 
+		}
+		if (method == POST && found_content_length == false && _is_chunked == false)
 		{
 			state = ERROR;
 			_error_code = 411;
@@ -267,37 +385,41 @@ void HttpRequest::parse()
 void HttpRequest::startBodyParsing()
 {
 	if (state != HEADERS_COMPLETE)
-		return ;
+		return;
 	state = READING_BODY;
 
-	// Write any leftover bytes caught in the header buffer
-	if (buffer.size() > body_start_pos)
+	buffer.erase(0, body_start_pos);
+	if (_is_chunked)
 	{
-		size_t leftover_len = buffer.size() - body_start_pos;
-
+		parseChunkedBody(); // Process any chunk data already caught in the buffer
+	}
+	else
+	{
+		// --- Standard Content-Length Logic ---
+		size_t leftover_len = buffer.size();
 		if (_body_bytes_read + leftover_len > content_length)
 		{
 			leftover_len = content_length - _body_bytes_read;
 		}
 
 		std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
-		if (file.is_open()) {
-			file.write(buffer.c_str() + body_start_pos, leftover_len);
+		if (file.is_open())
+		{
+			file.write(buffer.c_str(), leftover_len);
 			file.close();
-		} else {
+		}
+		else
+		{
 			_error_code = 500;
 			state = ERROR;
-			std::cerr << "Failed to open temp file for body stream." << std::endl;
 			return;
 		}
 		_body_bytes_read += leftover_len;
+		buffer.erase(0, leftover_len);
+
+		if (_body_bytes_read >= content_length)
+			state = COMPLETE;
 	}
-
-	// Clear the body from RAM buffer to save memory
-	buffer.erase(body_start_pos);
-
-	if (_body_bytes_read >= content_length)
-		state = COMPLETE;
 }
 
 void HttpRequest::append(const char *buff, int size)
@@ -307,7 +429,8 @@ void HttpRequest::append(const char *buff, int size)
 	if (state != READING_BODY)
 	{
 		buffer.append(buff, size);
-		if (buffer.size() > 8192 && state != HEADERS_COMPLETE) {
+		if (buffer.size() > 8192 && state != HEADERS_COMPLETE)
+		{
 			state = ERROR;
 			_error_code = 431;
 			std::cerr << "[ERROR] 431 Request Header Fields Too Large" << std::endl;
@@ -317,29 +440,41 @@ void HttpRequest::append(const char *buff, int size)
 	}
 	else
 	{
-		// Strictly in body phase, stream directly to disk
-		size_t bytes_to_write = size;
-		
-		if (_body_bytes_read + bytes_to_write > content_length) {
-			bytes_to_write = content_length - _body_bytes_read;
+		if (_is_chunked)
+		{
+			buffer.append(buff, size); // Must buffer temporarily to find Hex sizes
+			parseChunkedBody();
 		}
+		else
+		{
+			// Strictly in body phase, stream directly to disk
+			size_t bytes_to_write = size;
 
-		std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
-		if (file.is_open()) {
-			file.write(buff, bytes_to_write);
-			file.close();
-			_body_bytes_read += bytes_to_write;
-		}
-		else {
-			state = ERROR;
-			_error_code = 500;
-			std::cerr << "Failed to open temp file for body stream." << std::endl;
-			return;
-		}
+			if (_body_bytes_read + bytes_to_write > content_length)
+			{
+				bytes_to_write = content_length - _body_bytes_read;
+			}
 
-		if (_body_bytes_read >= content_length) {
-			state = COMPLETE;
-			std::cout << "[INFO] Successfully streamed large body to " << _temp_filename << std::endl;
+			std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
+			if (file.is_open())
+			{
+				file.write(buff, bytes_to_write);
+				file.close();
+				_body_bytes_read += bytes_to_write;
+			}
+			else
+			{
+				state = ERROR;
+				_error_code = 500;
+				std::cerr << "Failed to open temp file for body stream." << std::endl;
+				return;
+			}
+
+			if (_body_bytes_read >= content_length)
+			{
+				state = COMPLETE;
+				std::cout << "[INFO] Successfully streamed large body to " << _temp_filename << std::endl;
+			}
 		}
 	}
 }

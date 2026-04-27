@@ -52,6 +52,7 @@ class HttpRequest
 		void startBodyParsing();
 		void setUploadDir(const std::string& dir) { _upload_dir = dir; }
 		int getErrorCode() const { return _error_code; }
+		bool isChunked() const { return _is_chunked; }
 
 	private:
 		std::string buffer;
@@ -83,5 +84,11 @@ class HttpRequest
 		void loadHeaders(size_t start, size_t end);
 		void setHeaderName(size_t start, size_t end, std::string &header_name);
 		void setHeaderValue(size_t start, size_t end, std::string &header_value);
+		bool _is_chunked;
+		int _chunk_state;         // 0: Size, 1: Data, 2: Trailer (\r\n)
+		size_t _chunk_bytes_left; // Bytes left to read in the current chunk
+		bool _is_last_chunk;      // True when we read a 0 size
+		
+		void parseChunkedBody();
 };
 #endif

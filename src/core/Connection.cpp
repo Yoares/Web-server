@@ -96,6 +96,23 @@ void Connection::handleRequest()
 	updateActivity();
 	
 	_request.append(buff, bread);
+
+	if (_request.getState() == ERROR)
+	{
+		std::map<int, std::string> err_pages;
+		if (_matched_server) {
+			err_pages = _matched_server->error_pages;
+		}
+		
+		// Build the HTTP Error response (e.g., 400 Bad Request)
+		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
+		_header_buffer = _response.getHeadersAsString();
+		_is_response_ready = true;
+		
+		return; // STOP EXECUTION! Do not parse headers or bodies.
+	}
+
+
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
 		_matched_server = findCorrectServer(_request.getHost());
@@ -123,6 +140,16 @@ void Connection::handleRequest()
 		_request.startBodyParsing();
 	}
 
+	if (_matched_server && _request.getContentLength() > _matched_server->client_max_body_size)
+	{
+		std::cerr << "[ERROR] 413 Payload Too Large (Stream exceeded limit!)" << std::endl;
+		
+		_response.buildErrorResponse(413, _matched_server->error_pages);
+		_header_buffer = _response.getHeadersAsString();
+		_is_response_ready = true;
+		
+		return; // Instantly abort the download and prepare to send the 413 error!
+	}
 	if (_request.getState() == COMPLETE) 
     {
         // Failsafe check
@@ -142,20 +169,6 @@ void Connection::handleRequest()
             handleDelete(*matched_location);
         }
     }
-	if (_request.getState() == ERROR)
-	{
-		std::map<int, std::string> err_pages;
-		if (_matched_server) {
-			err_pages = _matched_server->error_pages;
-		}
-		
-		// Build the HTTP Error response (e.g., 400 Bad Request)
-		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
-		_header_buffer = _response.getHeadersAsString();
-		_is_response_ready = true;
-		
-		return; // STOP EXECUTION! Do not parse headers or bodies.
-	}
 }
 
 const Server *Connection::findCorrectServer(const std::string &host)
