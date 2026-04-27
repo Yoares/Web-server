@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
+#include <dirent.h>
 #include <fcntl.h>
 
 std::string Connection::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
@@ -58,14 +59,41 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
         }
     }
     if (loc.autoindex){
-        
+        DIR *dir = opendir(path.c_str());
+        if (dir == NULL){
+            _response.buildErrorResponse(500, _matched_server->error_pages);
+            _header_buffer = _response.getHeadersAsString();
+            _is_response_ready = true;
+            return;
+        }
+        std::string body;
+        body += "<html><body><ul>";
+
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != NULL)
+        {
+            body += "<li>";
+            body += entry->d_name;
+            body += "</li>";
+        }
+
+        body += "</ul></body></html>";
+
+        closedir(dir);
+        _response.setStatusCode(200);
+        _response.setHeader("Content-type", "text/html");
+        _response.setHeader("Content-Length", to_string(body.size()));
+        _response.setBody(body);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
     }
-    // else { //this if the autoindex is off
-    //     _response.buildErrorResponse(403, _matched_server->error_pages);
-    //     _header_buffer = _response.getHeadersAsString();
-    //     _is_response_ready = true;
-    //     return;
-    // }
+    else { //this if the autoindex is off
+        _response.buildErrorResponse(403, _matched_server->error_pages);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
     
 }
 
