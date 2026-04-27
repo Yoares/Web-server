@@ -43,8 +43,60 @@ static bool readFile(int fd, std::string &content){
     return true;
 }
 
-void handleDirectory(const std::string& path, const Location& loc){
+void Connection::handleDirectory(const std::string& path, const Location& loc){
 
+    // if (!loc.index.empty()){
+    //     std::string index_path = path;
+    //     if (index_path[index_path.length() - 1] != '/'){
+
+    //     }
+    // }
+    // else { //this if the autoindex is off
+    //     _response.buildErrorResponse(403, _matched_server->error_pages);
+    //     _header_buffer = _response.getHeadersAsString();
+    //     _is_response_ready = true;
+    //     return;
+    // }
+    
+}
+
+void Connection::serveFile(const std::string& _path) {
+
+    if (access(_path.c_str(), R_OK) == -1)
+    {
+        _response.buildErrorResponse(403, _matched_server->error_pages);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
+
+    int fd = open(_path.c_str(), O_RDONLY);
+    if (fd == -1)
+    {
+        _response.buildErrorResponse(500, _matched_server->error_pages);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
+
+    std::string content;
+    if (!readFile(fd, content))
+    {
+        close(fd);
+        _response.buildErrorResponse(500, _matched_server->error_pages);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
+
+    close(fd);
+    _response.setStatusCode(200);
+    _response.setHeader("Content-Length", to_string(content.size()));
+    _response.setHeader("Content-Type", MimeTypes::getMimeType(_path));
+    _response.setBody(content);
+    _header_buffer = _response.getHeadersAsString();
+    _is_response_ready = true;
+    return;
 }
 
 void Connection::handleGet(const Location& loc) {
@@ -109,40 +161,5 @@ void Connection::handleGet(const Location& loc) {
         return;
     }
 
-    // Read permission
-    if (access(_path.c_str(), R_OK) == -1)
-    {
-        _response.buildErrorResponse(403, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return;
-    }
-
-    int fd = open(_path.c_str(), O_RDONLY);
-    if (fd == -1)
-    {
-        _response.buildErrorResponse(500, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return;
-    }
-
-    std::string content;
-    if (!readFile(fd, content))
-    {
-        close(fd);
-        _response.buildErrorResponse(500, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return;
-    }
-
-    close(fd);
-    _response.setStatusCode(200);
-    _response.setHeader("Content-Length", std::to_string(content.size()));
-    _response.setHeader("Content-Type", MimeTypes::getMimeType(_path));
-    _response.setBody(content);
-    _header_buffer = _response.getHeadersAsString();
-    _is_response_ready = true;
-    return;
+    serveFile(_path);
 }
