@@ -45,12 +45,21 @@ static bool readFile(int fd, std::string &content){
 
 void Connection::handleDirectory(const std::string& path, const Location& loc){
 
-    // if (!loc.index.empty()){
-    //     std::string index_path = path;
-    //     if (index_path[index_path.length() - 1] != '/'){
-
-    //     }
-    // }
+    if (!loc.index.empty()){
+        std::string index_path = path;
+        if (index_path[index_path.length() - 1] != '/'){
+            index_path += "/";
+        }
+        index_path += loc.index;
+        struct  stat st;
+        if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)){
+            serveFile(index_path);
+            return;
+        }
+    }
+    if (loc.autoindex){
+        
+    }
     // else { //this if the autoindex is off
     //     _response.buildErrorResponse(403, _matched_server->error_pages);
     //     _header_buffer = _response.getHeadersAsString();
