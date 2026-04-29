@@ -102,7 +102,7 @@ std::vector<epoll_event> Webserv::waitforEvents()
 	int ready = epoll_wait(epollFd, events.data(), 10, 10000);
 	if (ready == -1)
 	{
-		if (errno == EINTR) 
+		if (errno == EINTR)
 			throw NoEvents();
 		throw std::runtime_error("Fatal Error: epoll_wait failed.");
 	}
@@ -117,28 +117,28 @@ std::vector<epoll_event> Webserv::waitforEvents()
 
 void Webserv::checkTimeouts()
 {
-    time_t current_time = time(NULL);
-    const int TIMEOUT_LIMIT = 60; // Set timeout limit (e.g., 60 seconds)
+	time_t current_time = time(NULL);
+	const int TIMEOUT_LIMIT = 60; // Set timeout limit (e.g., 60 seconds)
 
-    std::map<int, Connection>::iterator it = connections.begin();
-    while (it != connections.end())
-    {
-        // Check if the connection has been idle for longer than TIMEOUT_LIMIT
-        if (current_time - it->second.getLastActivity() > TIMEOUT_LIMIT)
-        {
-            std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
-            
-            // Clean up sockets
-            epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
-            close(it->first);
-            
-            // C++98 TRICK: Safely erase the current item and move iterator forward.
-            // If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
-            connections.erase(it); 
-        }
+	std::map<int, Connection>::iterator it = connections.begin();
+	while (it != connections.end())
+	{
+		// Check if the connection has been idle for longer than TIMEOUT_LIMIT
+		if (current_time - it->second.getLastActivity() > TIMEOUT_LIMIT)
+		{
+			std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
+
+			// Clean up sockets
+			epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
+			close(it->first);
+
+			// C++98 TRICK: Safely erase the current item and move iterator forward.
+			// If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
+			connections.erase(it);
+		}
 		else
 			it++;
-    }
+	}
 }
 void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 {
@@ -176,39 +176,42 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 		if (it != connections.end())
 		{
 			Connection &conn = it->second;
-			if (events[i].events & EPOLLIN)
+			try
 			{
-				try
+
+				if (events[i].events & EPOLLIN)
 				{
 					conn.handleRequest();
-				}
-				catch (const Connection::ConnectionClosed &e)
-				{
-					std::cout << "[INFO] Connection closed by client (FD: " << events[i].data.fd << ")" << std::endl;
-					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
-					close(events[i].data.fd);
-					connections.erase(it);
-				}
-				catch (const std::exception &e)
-				{
-					std::cerr << "[ERROR] Error handling request on FD " << events[i].data.fd << ": " << e.what() << std::endl;
-					close(events[i].data.fd);
-					connections.erase(it);
-				}
-				if (conn.isResponseReady())
-				{
-					struct epoll_event ev;
-					std::memset(&ev, 0, sizeof(ev));
-					ev.events = EPOLLOUT;
-					ev.data.fd = events[i].data.fd;
-					if (epoll_ctl(epollFd, EPOLL_CTL_MOD, events[i].data.fd, &ev) == -1) {
+
+					if (conn.isResponseReady())
+					{
+						struct epoll_event ev;
+						std::memset(&ev, 0, sizeof(ev));
+						ev.events = EPOLLOUT;
+						ev.data.fd = events[i].data.fd;
+						if (epoll_ctl(epollFd, EPOLL_CTL_MOD, events[i].data.fd, &ev) == -1)
+						{
 							throw std::runtime_error("Error modifying epoll to EPOLLOUT");
 						}
+					}
+				}
+				if (events[i].events & EPOLLOUT)
+				{
+					conn.sendResponse();
 				}
 			}
-			if (events[i].events & EPOLLOUT)
+			catch (const Connection::ConnectionClosed &e)
 			{
-				conn.sendResponse();
+				std::cout << "[INFO] Connection with client closed (FD: " << events[i].data.fd << ")" << std::endl;
+				epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+				close(events[i].data.fd);
+				connections.erase(it);
+			}
+			catch (const std::exception &e)
+			{
+				std::cerr << "[ERROR] Error handling FD " << events[i].data.fd << ": " << e.what() << std::endl;
+				close(events[i].data.fd);
+				connections.erase(it);
 			}
 		}
 	}
@@ -234,24 +237,27 @@ void Webserv::run()
 	}
 }
 
-Webserv::~Webserv() 
+Webserv::~Webserv()
 {
 	std::cout << "[INFO] Cleaning up resources..." << std::endl;
 
-	for (std::map<int, Connection>::iterator it = connections.begin(); it != connections.end(); ++it) {
+	for (std::map<int, Connection>::iterator it = connections.begin(); it != connections.end(); ++it)
+	{
 		close(it->first);
 	}
 	connections.clear();
 
-	for (std::map<int, std::vector<Server> >::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it) {
+	for (std::map<int, std::vector<Server>>::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
+	{
 		close(it->first);
 	}
 	fdToServers.clear();
 
-	if (epollFd != -1) {
+	if (epollFd != -1)
+	{
 		close(epollFd);
 	}
-	
+
 	std::cout << "[INFO] Server shutdown complete." << std::endl;
 }
 

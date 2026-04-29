@@ -103,8 +103,11 @@ void Connection::handleRequest()
 		if (_matched_server) {
 			err_pages = _matched_server->error_pages;
 		}
-		
-		// Build the HTTP Error response (e.g., 400 Bad Request)
+		else
+		{
+			err_pages = _possible_servers[0].error_pages;
+		}
+
 		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
 		_header_buffer = _response.getHeadersAsString();
 		_is_response_ready = true;
