@@ -1,0 +1,9 @@
+STEP 1 > minimal POST (save body to file)
+STEP 2 > validate method permissions
+STEP 3 > body size limit
+STEP 4 > upload directory handling
+STEP 5 > multipart/form-data parsing
+STEP 6 > CGI POST
+STEP 7 > security hardening
+
+i need getBody for POST 
