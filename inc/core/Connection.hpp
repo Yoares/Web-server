@@ -26,6 +26,7 @@ class Connection {
         std::string resolvePhysicalPath(const std::string& request_uri, const Location& loc);
         void handleDirectory(const std::string& path, const Location& loc);
         void serveFile(const std::string& file_path);
+        bool handlePostDir(const std::string& path);
 
 		HttpResponse _response;
         

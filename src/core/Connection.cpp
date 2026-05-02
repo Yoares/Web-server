@@ -10,10 +10,10 @@ const char* Connection::ConnectionClosed::what() const throw() {
 //    (void)loc; // Avoid unused parameter warning
 // }
 
-void Connection::handlePost(const Location& loc) {
-  //
-  (void)loc; // Avoid unused parameter warning
-}
+// void Connection::handlePost(const Location& loc) {
+//   //
+//   (void)loc; // Avoid unused parameter warning
+// }
 
 void Connection::handleDelete(const Location& loc) {
   //

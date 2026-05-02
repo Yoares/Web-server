@@ -47,7 +47,7 @@ class HttpRequest
 		size_t getContentLength() const { return content_length; }
 		std::map<std::string, std::string> getHeaders() const { return headers; }
 		bool isHttpVersionValid() const { return http_version_valid; }
-		
+		std::string getTempFilename() const { return _temp_filename; }
 
 		void startBodyParsing();
 		void setUploadDir(const std::string& dir) { _upload_dir = dir; }
