@@ -1,19 +1,27 @@
 #include "../../inc/core/Connection.hpp"
+#include "../../inc/core/Post.hpp"
 
 const char* Connection::ConnectionClosed::what() const throw() {
     return "Connection closed safely.";
 }
 
-// --- HTTP Method Placeholders ---
-// void Connection::handleGet(const Location& loc) {
-//    //
-//    (void)loc; // Avoid unused parameter warning
-// }
+void Connection::handlePost(const Location& loc) {
+    // Failsafe check
+    if (!_matched_server) {
+        _response.buildErrorResponse(500, _possible_servers[0].error_pages);
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
 
-// void Connection::handlePost(const Location& loc) {
-//   //
-//   (void)loc; // Avoid unused parameter warning
-// }
+    // Instantiate handler and execute logic
+    PostHandler post_handler(_request, _response, *_matched_server, loc);
+    post_handler.execute();
+
+    // Finalize response flags for the Connection object
+    _header_buffer = _response.getHeadersAsString();
+    _is_response_ready = true;
+}
 
 void Connection::handleDelete(const Location& loc) {
   //
