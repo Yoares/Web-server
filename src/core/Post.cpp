@@ -158,6 +158,59 @@ std::string PostHandler::extractBoundary(const std::string& contentType) const{
     return contentType.substr(pos + key.length());
 }
 
+bool PostHandler::readTempFile(const std::string& temp_file, std::string& body){
+    int fd = open(temp_file.c_str(), O_RDONLY);
+
+    if (fd == -1){
+        _response.buildErrorResponse(500, _server.error_pages);
+        return false;
+    }
+    char buffer[4096];
+    ssize_t bytesRead;
+
+    while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0){
+        body.append(buffer, bytesRead);
+    }
+
+    close(fd);
+
+    if (bytesRead == -1){
+        _response.buildErrorResponse(500, _server.error_pages);
+        return false;
+    }
+
+    return true;
+}
+
+bool PostHandler::extractMultipartContent(const std::string& body, const std::string& boundary, std::string& file_content){
+    
+    std::string delimiter = "--" + boundary;
+
+    std::string::size_type start = body.find(delimiter);
+
+    if (start == std::string::npos)
+        return false;
+    
+    std::string::size_type header_end = body.find("\r\n\r\n", start);
+
+    if (header_end == std::string::npos)
+        return false;
+    
+    header_end += 4;
+
+    std::string::size_type end = body.find(delimiter, header_end);
+
+    if (end == std::string::npos)
+        return false;
+
+    if (end >= 2)
+        end -= 2;
+
+    file_content = body.substr(header_end, end - header_end);
+
+    return true;
+}
+
 void PostHandler::execute() {
     std::string path = resolvePhysicalPath(_request.getPath(), _location);
 
@@ -181,7 +234,19 @@ void PostHandler::execute() {
     // NOTE: If handling multipart forms in the future, inject parsing logic here
     if (isMultipart())
     {
-        // multipart flow
+       std::string body;
+        if (!readTempFile(temp_file, body))
+            return;
+        std::map<std::string, std::string> headers = _request.getHeaders();
+
+        std::string boundary = extractBoundary(headers["Content-Type"]);
+        std::string file_content;
+
+        if (!extractMultipartContent(body, boundary, file_content))
+        {
+            _response.buildErrorResponse(400, _server.error_pages);
+            return;
+        }
     }
     // 3. Move the physical file
     else {
