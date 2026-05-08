@@ -5,21 +5,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 
-// handlePost()
-//     |
-//     |-- resolve upload path
-//     |-- open file
-//     |-- write body
-//     |-- send success response
-//handle multipart
-//temp file
-//    ↓
-// parse multipart
-//    ↓
-// extract real file content
-//    ↓
-// save file
-
 std::string PostHandler::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
     std::string _path;
     std::string root ;
@@ -150,6 +135,29 @@ bool PostHandler::copyToDestination(const std::string& temp_file, const std::str
     return true;
 }
 
+bool PostHandler::isMultipart() const{
+    std::map<std::string, std::string> headers = _request.getHeaders();
+
+    std::map<std::string, std::string>::iterator it = headers.find("Content-Type");
+
+    if (it == headers.end())
+        return false;
+    
+    return (it->second.find("multipart/form-data")
+        != std::string::npos);
+}
+
+std::string PostHandler::extractBoundary(const std::string& contentType) const{
+    std::string key = "boundary=";
+
+    std::string::size_type pos = contentType.find(key);
+
+    if (pos == std::string::npos)
+        return "";
+
+    return contentType.substr(pos + key.length());
+}
+
 void PostHandler::execute() {
     std::string path = resolvePhysicalPath(_request.getPath(), _location);
 
@@ -171,10 +179,16 @@ void PostHandler::execute() {
     }
 
     // NOTE: If handling multipart forms in the future, inject parsing logic here
-
+    if (isMultipart())
+    {
+        // multipart flow
+    }
     // 3. Move the physical file
-    if (!copyToDestination(temp_file, path)) {
-        return;
+    else {
+
+        if (!copyToDestination(temp_file, path)) {
+            return;
+        }
     }
 
     // Optional: unlink(temp_file.c_str());

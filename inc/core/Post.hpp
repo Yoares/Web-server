@@ -27,6 +27,8 @@ private:
     bool validateUploadDirectory(const std::string& path);
     bool validateBodySize(const std::string& temp_file);
     bool copyToDestination(const std::string& temp_file,const std::string& path);
+    bool isMultipart() const;
+    std::string extractBoundary(const std::string& contentType) const;
 };
 
 #endif
