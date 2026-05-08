@@ -252,14 +252,19 @@ void PostHandler::execute() {
         return;
     }
 
-    // NOTE: If handling multipart forms in the future, inject parsing logic here
-    if (isMultipart())
-    {
 
-    }
-    // 3. Move the physical file
+    // 3. Process the file based on its type
+    if (isMultipart()) {
+        std::map<std::string, std::string> headers = _request.getHeaders();
+        std::string boundary = extractBoundary(headers["Content-Type"]);
+
+        if (boundary.empty() || !processMultipart(temp_file, boundary, path)) {
+            // Error response is handled inside processMultipart
+            return;
+        }
+    } 
     else {
-
+        // It's a raw file upload, not multipart
         if (!copyToDestination(temp_file, path)) {
             return;
         }
