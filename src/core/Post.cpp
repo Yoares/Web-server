@@ -211,6 +211,34 @@ bool PostHandler::extractMultipartContent(const std::string& body, const std::st
     return true;
 }
 
+bool PostHandler::saveExtractedContent(const std::string& path, const std::string& content){
+    
+    int fd = open(path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
+
+    if (fd == -1)
+    {
+        _response.buildErrorResponse(500, _server.error_pages);
+        return false;
+    }
+    size_t totalwritten = 0;
+    while (totalwritten < content.size())
+    {
+        ssize_t written = write(fd, content.c_str() + totalwritten, content.size() - totalwritten);
+        if (written == -1)
+        {
+            close(fd);
+            unlink(path.c_str());
+
+            _response.buildErrorResponse(500, _server.error_pages);
+            return false;
+        }
+
+        totalwritten += written;
+    }
+    close(fd);
+    return true;
+}
+
 void PostHandler::execute() {
     std::string path = resolvePhysicalPath(_request.getPath(), _location);
 
@@ -247,6 +275,8 @@ void PostHandler::execute() {
             _response.buildErrorResponse(400, _server.error_pages);
             return;
         }
+        if (!saveExtractedContent(path, file_content))
+            return;
     }
     // 3. Move the physical file
     else {

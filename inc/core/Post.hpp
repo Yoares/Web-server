@@ -32,6 +32,7 @@ private:
     std::string extractBoundary(const std::string& contentType) const;
     bool readTempFile(const std::string& temp_file, std::string& body);
     bool extractMultipartContent(const std::string& body, const std::string& boundary, std::string& file_content);
+    bool saveExtractedContent(const std::string& path, const std::string& content);
 };
 
 #endif
