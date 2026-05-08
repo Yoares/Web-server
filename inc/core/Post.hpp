@@ -4,6 +4,9 @@
 #include "../http/HttpRequest.hpp"
 #include "../http/HttpResponse.hpp"
 #include "../config/Config.hpp"
+#include <vector>
+#include <fstream>
+#include <algorithm>
 
 class PostHandler
 {
@@ -30,9 +33,10 @@ private:
     // multipart
     bool isMultipart() const;
     std::string extractBoundary(const std::string& contentType) const;
-    bool readTempFile(const std::string& temp_file, std::string& body);
-    bool extractMultipartContent(const std::string& body, const std::string& boundary, std::string& file_content);
-    bool saveExtractedContent(const std::string& path, const std::string& content);
+    // bool readTempFile(const std::string& temp_file, std::string& body);
+    // bool extractMultipartContent(const std::string& body, const std::string& boundary, std::string& file_content);
+    // bool saveExtractedContent(const std::string& path, const std::string& content);
+    bool processMultipart(const std::string& temp_file, const std::string& boundary, const std::string& upload_dir);
 };
 
 #endif
