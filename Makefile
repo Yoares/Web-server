@@ -17,7 +17,7 @@ INC_DIR     = inc
 
 # Core Files
 MAIN_SRC    = main.cpp
-CORE_SRCS   = core/Webserv.cpp core/Connection.cpp core/Get.cpp core/Post.cpp
+CORE_SRCS   = core/Webserv.cpp core/Connection.cpp core/Get.cpp core/Post.cpp core/Delete.cpp
 CONF_SRCS   = config/ServerBlock.cpp config/LocationBlock.cpp \
               config/Tokenizer.cpp config/ConfigParser.cpp config/ConfigValidator.cpp
 HTTP_SRCS   = http/HttpRequest.cpp http/HttpResponse.cpp
