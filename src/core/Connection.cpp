@@ -23,13 +23,10 @@ void Connection::handlePost(const Location& loc) {
     _is_response_ready = true;
 }
 
-<<<<<<< HEAD
-=======
 // void Connection::handleDelete(const Location& loc) {
 //   //
 //   (void)loc; // Avoid unused parameter warning
 // }
->>>>>>> 5e6f155 (refactor HttpRequest and Connection classes to improve host handling and body parsing)
 
 void Connection::sendResponse()
 {
