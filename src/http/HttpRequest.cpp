@@ -12,6 +12,7 @@ HttpRequest::HttpRequest()
 	this->http_version_valid = false;
 	this->method = UNKNOWN;
 	this->path = "";
+	this->Host = "";
 	this->query_string = "";
 	this->headers.clear();
 	this->found_content_length = false;
@@ -384,8 +385,6 @@ void HttpRequest::parse()
 }
 void HttpRequest::startBodyParsing()
 {
-	if (state != HEADERS_COMPLETE)
-		return;
 	state = READING_BODY;
 
 	buffer.erase(0, body_start_pos);
