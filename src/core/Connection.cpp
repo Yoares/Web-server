@@ -23,10 +23,6 @@ void Connection::handlePost(const Location& loc) {
     _is_response_ready = true;
 }
 
-// void Connection::handleDelete(const Location& loc) {
-//   //
-//   (void)loc; // Avoid unused parameter warning
-// }
 
 void Connection::sendResponse()
 {
