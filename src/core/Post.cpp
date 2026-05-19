@@ -296,11 +296,17 @@ void PostHandler::execute() {
         }
     } 
     else {
-        // It's a raw file upload, not multipart
-        if (!copyToDestination(temp_file, path)) {
-            return;
-        }
+    // If path is a directory, don't overwrite the directory! 
+    // Give it a default name or extract it from a header.
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+        path += "/uploaded_raw_file.bin"; 
     }
+    
+    if (!copyToDestination(temp_file, path)) {
+        return;
+    }
+}
 
     // Optional: unlink(temp_file.c_str());
 
