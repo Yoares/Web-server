@@ -127,7 +127,7 @@ void Connection::handleRequest()
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
 			// Check server-level client_max_body_size
-		if (_request.getContentLength() > _matched_server->client_max_body_size)
+		if (_request.isChunked() == false && _request.getContentLength() > _matched_server->client_max_body_size)
 		{
 			_response.buildErrorResponse(413, _matched_server->error_pages);
 			_header_buffer = _response.getHeadersAsString();
