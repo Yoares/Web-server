@@ -44,13 +44,13 @@ class HttpRequest
 		std::string getPath() const { return path; }
 		std::string getQueryString() const { return query_string; }
 		std::string getHost() const { return Host; }
+		bool foundHost() const { return found_host; }
 		size_t getContentLength() const { return content_length; }
 		std::map<std::string, std::string> getHeaders() const { return headers; }
 		bool isHttpVersionValid() const { return http_version_valid; }
 		std::string getTempFilename() const { return _temp_filename; }
 
 		void startBodyParsing();
-		void setUploadDir(const std::string& dir) { _upload_dir = dir; }
 		int getErrorCode() const { return _error_code; }
 		bool isChunked() const { return _is_chunked; }
 
@@ -71,7 +71,6 @@ class HttpRequest
 
 		std::string _temp_filename;
 		size_t _body_bytes_read;
-		std::string _upload_dir;
 		static int req_counter;
 		int _error_code;
 

@@ -23,6 +23,10 @@ void Connection::handlePost(const Location& loc) {
     _is_response_ready = true;
 }
 
+// void Connection::handleDelete(const Location& loc) {
+//   //
+//   (void)loc; // Avoid unused parameter warning
+// }
 
 void Connection::sendResponse()
 {
@@ -101,16 +105,18 @@ void Connection::handleRequest()
 	
 	_request.append(buff, bread);
 
+	if (_request.foundHost() && _matched_server == NULL)
+	{
+		_matched_server = findCorrectServer(_request.getHost());
+		matched_location = findLocation(_matched_server, _request.getPath());
+	}
 	if (_request.getState() == ERROR)
 	{
 		std::map<int, std::string> err_pages;
-		if (_matched_server) {
+		if (_matched_server)
 			err_pages = _matched_server->error_pages;
-		}
 		else
-		{
 			err_pages = _possible_servers[0].error_pages;
-		}
 
 		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
 		_header_buffer = _response.getHeadersAsString();
@@ -118,72 +124,21 @@ void Connection::handleRequest()
 		
 		return; // STOP EXECUTION! Do not parse headers or bodies.
 	}
-
-
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
-		_matched_server = findCorrectServer(_request.getHost());
-
-		if (_matched_server)
-		{
 			// Check server-level client_max_body_size
-			if (_request.getContentLength() > _matched_server->client_max_body_size)
-			{
-				_response.buildErrorResponse(413, _matched_server->error_pages);
-				_header_buffer = _response.getHeadersAsString();
-				_is_response_ready = true;
-				return; // STOP EXECUTION! Do not parse body.
-			}
-
-			matched_location = findLocation(_matched_server, _request.getPath());
-
-			if (matched_location)
-			{
-				_request.setUploadDir(matched_location->upload_dir);
-			}
+		if (_request.getContentLength() > _matched_server->client_max_body_size)
+		{
+			_response.buildErrorResponse(413, _matched_server->error_pages);
+			_header_buffer = _response.getHeadersAsString();
+			_is_response_ready = true;
+			return; // STOP EXECUTION! Do not parse body.
 		}
-
 		// Resume parsing the body (opens file and writes leftover buffer)
 		_request.startBodyParsing();
 	}
-
-	if (_matched_server && _request.getContentLength() > _matched_server->client_max_body_size)
-	{
-		std::cerr << "[ERROR] 413 Payload Too Large (Stream exceeded limit!)" << std::endl;
-		
-		_response.buildErrorResponse(413, _matched_server->error_pages);
-		_header_buffer = _response.getHeadersAsString();
-		_is_response_ready = true;
-		
-		return; // Instantly abort the download and prepare to send the 413 error!
-	}
 	if (_request.getState() == COMPLETE) 
     {
-        // Failsafe check
-        if (matched_location == NULL) 
-		{
-			_matched_server = findCorrectServer(_request.getHost());
-
-			if (_matched_server)
-			{
-				// Check server-level client_max_body_size
-				if (_request.getContentLength() > _matched_server->client_max_body_size)
-				{
-					_response.buildErrorResponse(413, _matched_server->error_pages);
-					_header_buffer = _response.getHeadersAsString();
-					_is_response_ready = true;
-					return; // STOP EXECUTION! Do not parse body.
-				}
-
-				matched_location = findLocation(_matched_server, _request.getPath());
-
-				if (matched_location)
-				{
-					_request.setUploadDir(matched_location->upload_dir);
-				}
-			}
-		}
-
         if (_request.getMethod() == GET) {
             handleGet(*matched_location);
         } else if (_request.getMethod() == POST) {
