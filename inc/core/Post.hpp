@@ -35,8 +35,8 @@ private:
     std::string extractBoundary(const std::string& contentType) const;
     
     // UPDATE THIS SIGNATURE (Add out_filename):
-    bool processMultipart(const std::string& temp_file, const std::string& boundary, const std::string& upload_dir, std::string& out_filename);
-    
+    // In Post.hpp and Post.cpp
+bool processMultipart(const std::string& temp_file, const std::string& boundary, const std::string& upload_dir, std::vector<std::string>& out_filenames);
     // ADD THIS NEW METHOD:
     void buildSuccessResponse(const std::vector<std::string>& finalNames, bool isRaw);
 
