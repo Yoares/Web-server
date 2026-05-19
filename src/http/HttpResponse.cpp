@@ -30,6 +30,7 @@ void HttpResponse::setFile(const std::string& path, size_t size) {
 std::string HttpResponse::getReasonPhrase(int code) const {
     switch (code) {
         case 200: return "OK";
+        case 201: return "Created";
         case 404: return "Not Found";
 		case 413: return "Payload Too Large";
 		case 400: return "Bad Request";

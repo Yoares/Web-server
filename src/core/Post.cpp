@@ -90,6 +90,14 @@ if (dir.empty()) {
 }
 
 bool PostHandler::copyToDestination(const std::string& temp_file, const std::string& path) {
+    struct stat st;
+
+    if (stat(path.c_str(), &st) == 0) { 
+        if (S_ISDIR(st.st_mode)) {
+            _response.buildErrorResponse(403, _server.error_pages);
+            return false;
+        }
+    }
     int src_fd = open(temp_file.c_str(), O_RDONLY);
     if (src_fd == -1) {
         _response.buildErrorResponse(500, _server.error_pages);
@@ -135,16 +143,26 @@ bool PostHandler::copyToDestination(const std::string& temp_file, const std::str
     return true;
 }
 
-bool PostHandler::isMultipart() const{
+bool PostHandler::isMultipart() const {
     std::map<std::string, std::string> headers = _request.getHeaders();
+    std::map<std::string, std::string>::iterator it;
 
-    std::map<std::string, std::string>::iterator it = headers.find("Content-Type");
-
-    if (it == headers.end())
-        return false;
+    // 1. Try finding it with exact capitalization
+    it = headers.find("Content-Type");
     
-    return (it->second.find("multipart/form-data")
-        != std::string::npos);
+    // 2. If not found, try finding it in all lowercase (very common in webserv!)
+    if (it == headers.end()) {
+        it = headers.find("content-type");
+    }
+
+    // 3. If STILL not found, it's definitely not multipart
+    if (it == headers.end()) {
+        std::cout << "isMultipart: No Content-Type header found at all." << std::endl;
+        return false;
+    }
+    
+    // 4. Check if the value contains our keyword
+    return (it->second.find("multipart/form-data") != std::string::npos);
 }
 
 std::string PostHandler::extractBoundary(const std::string& contentType) const{
@@ -209,21 +227,23 @@ bool PostHandler::processMultipart(const std::string& temp_file, const std::stri
             headers_parsed = true;
         }
         // 3. State 2: Write the File Content
-        if (headers_parsed){
-            std::vector<char>::iterator boundary_pos = std::search(buffer.begin(), buffer.end(), end_boundary.begin(), end_boundary.end());
-            if (boundary_pos != buffer.end()){
-                if(boundary_pos > buffer.begin()){
-                    outfile.write(&buffer[0], boundary_pos - buffer.begin());
-                }
-                break;
+        // 3. State 2: Write the File Content
+    if (headers_parsed) {
+        std::vector<char>::iterator boundary_pos = std::search(buffer.begin(), buffer.end(), end_boundary.begin(), end_boundary.end());
+        
+        if (boundary_pos != buffer.end()) {
+            if(boundary_pos > buffer.begin()){
+                outfile.write(&buffer[0], boundary_pos - buffer.begin());
             }
-        }else{
+            break;
+        } else { // <--- THIS MUST BE ATTACHED TO THE BOUNDARY CHECK
             if (buffer.size() > end_boundary.length()){
                 size_t write_size = buffer.size() - end_boundary.length();
                 outfile.write(&buffer[0], write_size);
                 buffer.erase(buffer.begin(), buffer.begin() + write_size);
             }
         }
+    }
     }
     if (outfile.is_open()){
         outfile.close();
@@ -254,12 +274,24 @@ void PostHandler::execute() {
 
 
     // 3. Process the file based on its type
+// 3. Process the file based on its type
     if (isMultipart()) {
         std::map<std::string, std::string> headers = _request.getHeaders();
-        std::string boundary = extractBoundary(headers["Content-Type"]);
+        
+        // Safely find the content-type header regardless of capitalization
+        std::string ct_val = "";
+        if (headers.find("Content-Type") != headers.end()) ct_val = headers["Content-Type"];
+        else if (headers.find("content-type") != headers.end()) ct_val = headers["content-type"];
 
-        if (boundary.empty() || !processMultipart(temp_file, boundary, path)) {
-            // Error response is handled inside processMultipart
+        std::string boundary = extractBoundary(ct_val);
+
+        if (boundary.empty()) {
+            _response.buildErrorResponse(400, _server.error_pages);
+            return;
+        }
+
+        if (!processMultipart(temp_file, boundary, path)) {
+            // Error response (500) is already handled inside processMultipart
             return;
         }
     } 
