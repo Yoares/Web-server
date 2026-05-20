@@ -134,7 +134,9 @@ void Webserv::checkTimeouts()
 
 			// C++98 TRICK: Safely erase the current item and move iterator forward.
 			// If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
-			connections.erase(it);
+			std::map<int, Connection>::iterator temp = it;
+			it++;
+			connections.erase(temp);
 		}
 		else
 			it++;
