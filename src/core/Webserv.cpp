@@ -166,6 +166,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 				continue;
 			}
 			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd])));
+			std::cout << "[INFO] Accepted new connection (FD: " << client_fd << ")" << std::endl;
 		}
 	}
 }
@@ -212,6 +213,8 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 			catch (const std::exception &e)
 			{
 				std::cerr << "[ERROR] Error handling FD " << events[i].data.fd << ": " << e.what() << std::endl;
+				std::cout << "[INFO] Connection with client closed (FD: " << events[i].data.fd << ")" << std::endl;
+				epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
 				close(events[i].data.fd);
 				connections.erase(it);
 			}

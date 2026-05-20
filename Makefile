@@ -4,7 +4,7 @@
 
 NAME        = webserv
 CXX         = c++
-CXXFLAGS    = -Wall -Wextra -Werror -std=c++98 -fsanitize=address -g -I inc
+CXXFLAGS    = -Wall -Wextra -Werror -std=c++98 -g -I inc
 
 # Directories
 SRC_DIR     = src

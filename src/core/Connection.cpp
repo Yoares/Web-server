@@ -34,7 +34,7 @@ void Connection::sendResponse()
     if (_headers_sent < _header_buffer.length()) 
     {
         size_t bytes_left = _header_buffer.length() - _headers_sent;
-        ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, 0);
+        ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, MSG_NOSIGNAL);
         
         if (sent == -1) throw std::runtime_error("Error sending headers.");
         
@@ -61,7 +61,7 @@ void Connection::sendResponse()
 
         // Send the chunk over the socket
         if (bytes_read > 0) {
-            ssize_t sent = send(_client_fd, chunk, bytes_read, 0);
+            ssize_t sent = send(_client_fd, chunk, bytes_read, MSG_NOSIGNAL);
             if (sent == -1) throw std::runtime_error("Error sending file chunk.");
             _body_sent += sent;
             updateActivity();
@@ -77,10 +77,8 @@ void Connection::sendResponse()
         // It's a small string body (like an error page HTML)
         const std::string& body = _response.getBody();
         size_t bytes_left = body.length() - _body_sent;
-        
-        ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, 0);
-        if (sent == -1) throw std::runtime_error("Error sending string body.");
-        
+        ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, MSG_NOSIGNAL);
+        if (sent == -1) throw std::runtime_error("Error sending response body.");
         _body_sent += sent;
         updateActivity();
 
