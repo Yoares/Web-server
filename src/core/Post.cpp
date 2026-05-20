@@ -4,6 +4,36 @@
 #include <iostream>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sstream> 
+
+void PostHandler::buildSuccessResponse(const std::vector<std::string>& finalNames, bool isRaw) {
+    _response.setStatusCode(201);
+
+    // Use the exact URI the client requested to build the Location header
+    std::string base = _request.getPath();
+    if (!base.empty() && base[base.size() - 1] == '/')
+        base.erase(base.size() - 1);
+
+    // Set the Location header
+    if (isRaw && !finalNames.empty()) {
+        _response.setHeader("Location", base + "/" + finalNames[0]);
+    } else {
+        _response.setHeader("Location", base);
+    }
+
+    // Build the JSON string
+    std::ostringstream json;
+    json << "{\n  \"status\": 201,\n  \"uploaded\": [";
+    for (size_t i = 0; i < finalNames.size(); ++i) {
+        json << "\n    \"" << base << "/" << finalNames[i] << "\"";
+        if (i + 1 < finalNames.size()) json << ",";
+    }
+    json << "\n  ]\n}";
+
+    // Attach the JSON to your HttpResponse
+    _response.setHeader("Content-Type", "application/json");
+    _response.setBody(json.str());
+}
 
 std::string PostHandler::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
     std::string _path;
@@ -180,7 +210,7 @@ std::string PostHandler::extractBoundary(const std::string& contentType) const{
 // Step 3: Parse multipart headers → extract filename
 // Step 4: Stream file content to disk until boundary
 
-bool PostHandler::processMultipart(const std::string& temp_file, const std::string& boundary, const std::string& upload_dir){
+bool PostHandler::processMultipart(const std::string& temp_file, const std::string& boundary,const std::string& upload_dir, std::string& out_filename){
     
     std::ifstream infile(temp_file.c_str(), std::ios::binary);
     if (!infile.is_open()) {
@@ -212,7 +242,7 @@ bool PostHandler::processMultipart(const std::string& temp_file, const std::stri
                         filename = header_text.substr(f_pos, f_end - f_pos);
                     }
                 }
-                
+            out_filename = filename;
             }
             std::string final_path = upload_dir;
             if (final_path[final_path.length() - 1] != '/') 
@@ -260,57 +290,55 @@ void PostHandler::execute() {
         return;
     }
 
-    // 1. Check directory permissions
-    if (!validateUploadDirectory(path)) {
-        return;
-    }
+    if (!validateUploadDirectory(path)) return;
 
     std::string temp_file = _request.getTempFilename();
 
-    // 2. Validate max body size
-    if (!validateBodySize(temp_file)) {
-        return;
-    }
+    if (!validateBodySize(temp_file)) return;
 
+    // --- NEW LOGIC STARTS HERE ---
+    std::vector<std::string> uploaded_files;
 
-    // 3. Process the file based on its type
-// 3. Process the file based on its type
     if (isMultipart()) {
         std::map<std::string, std::string> headers = _request.getHeaders();
         
-        // Safely find the content-type header regardless of capitalization
         std::string ct_val = "";
         if (headers.find("Content-Type") != headers.end()) ct_val = headers["Content-Type"];
         else if (headers.find("content-type") != headers.end()) ct_val = headers["content-type"];
 
         std::string boundary = extractBoundary(ct_val);
-
         if (boundary.empty()) {
             _response.buildErrorResponse(400, _server.error_pages);
             return;
         }
 
-        if (!processMultipart(temp_file, boundary, path)) {
-            // Error response (500) is already handled inside processMultipart
-            return;
+        std::string parsed_filename;
+        if (!processMultipart(temp_file, boundary, path, parsed_filename)) {
+            return; // Error is handled inside
         }
+        
+        // Add the file to our success list
+        uploaded_files.push_back(parsed_filename);
+        buildSuccessResponse(uploaded_files, false);
     } 
     else {
-    // If path is a directory, don't overwrite the directory! 
-    // Give it a default name or extract it from a header.
-    struct stat st;
-    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
-        path += "/uploaded_raw_file.bin"; 
+        std::string filename;
+        struct stat st;
+        if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
+            filename = "uploaded_raw_file.bin";
+            path += "/" + filename; 
+        } else {
+            // Extract the filename from the end of the path
+            size_t pos = path.find_last_of('/');
+            filename = (pos != std::string::npos) ? path.substr(pos + 1) : path;
+        }
+        
+        if (!copyToDestination(temp_file, path)) {
+            return;
+        }
+        
+        // Add the file to our success list
+        uploaded_files.push_back(filename);
+        buildSuccessResponse(uploaded_files, true);
     }
-    
-    if (!copyToDestination(temp_file, path)) {
-        return;
-    }
-}
-
-    // Optional: unlink(temp_file.c_str());
-
-    // 4. Success Response
-    _response.setStatusCode(201);
-    _response.setBody("Created");
 }

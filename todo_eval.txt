@@ -1,2 +1,4 @@
 
 remove the hidden folders before pushing
+
+dynamic name for unamed files in post 
