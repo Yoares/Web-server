@@ -9,7 +9,7 @@
 
 std::string Connection::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
     std::string _path;
-    std::string root ;
+    std::string root;
 
     if (loc.root.empty())
         root = "/var/www/html";
@@ -19,13 +19,22 @@ std::string Connection::resolvePhysicalPath(const std::string& request_uri, cons
     if (request_uri.find("..") != std::string::npos)
         return "";
 
+    // --- ALIAS BEHAVIOR: Strip the location path from the URI ---
+    std::string clean_uri = request_uri;
+    if (!loc.path.empty() && request_uri.find(loc.path) == 0) {
+        clean_uri = request_uri.substr(loc.path.length());
+        if (clean_uri.empty() || clean_uri[0] != '/') {
+            clean_uri = "/" + clean_uri;
+        }
+    }
+
     // Prevent double slashes when joining
-    if (root[root.length() - 1] == '/' && request_uri[0] == '/') {
-        _path = root + request_uri.substr(1);
-    } else if (root[root.length() - 1] != '/' && request_uri[0] != '/') {
-        _path = root + "/" + request_uri;
+    if (root[root.length() - 1] == '/' && clean_uri[0] == '/') {
+        _path = root + clean_uri.substr(1);
+    } else if (root[root.length() - 1] != '/' && clean_uri[0] != '/') {
+        _path = root + "/" + clean_uri;
     } else {
-        _path = root + request_uri;
+        _path = root + clean_uri;
     }
 
     return _path;
@@ -185,6 +194,18 @@ void Connection::handleGet(const Location& loc) {
     // Directory handling
     if (S_ISDIR(st.st_mode))
     {
+		std::string req_path = _request.getPath();
+        if (!req_path.empty() && req_path[req_path.length() - 1] != '/') {
+            _response.setStatusCode(301);
+            _response.setHeader("Location", req_path + "/");
+            _response.setHeader("Content-Type", "text/html");
+			_response.setHeader("Connection", "close");
+            _response.setBody("<html><body><h1>301 Moved Permanently</h1></body></html>");
+            
+            _header_buffer = _response.getHeadersAsString();
+            _is_response_ready = true;
+            return;
+        }
         handleDirectory(_path, loc);
         return;
     }
