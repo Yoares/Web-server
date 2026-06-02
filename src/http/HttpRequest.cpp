@@ -152,6 +152,11 @@ void HttpRequest::loadMethod()
 		method = DELETE;
 		offset_ += 6;
 	}
+	else if (buffer.find("HEAD") == 0)
+	{
+		method = HEAD;
+		offset_ += 4;
+	}
 	else
 		method = UNKNOWN;
 }
@@ -350,7 +355,7 @@ void HttpRequest::parseHeaders()
 			std::cerr << "[ERROR] 411 Length Required (Chunked Encoding not supported)" << std::endl;
 			return;
 		}
-		if (method == GET || method == DELETE)
+		if (method == GET || method == DELETE || method == HEAD)
 		{
 			state = COMPLETE;
 			return;

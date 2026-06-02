@@ -46,6 +46,10 @@ void Connection::sendResponse()
         updateActivity();
         return; // Return and wait for the next EPOLLOUT event
     }
+	if (_request.getMethod() == HEAD) {
+		// For HEAD requests, we only send headers, so we can close the connection after headers are sent.
+		throw ConnectionClosed();
+	}
 
     // PHASE 2: Send Body
     if (_response.isFile()) 
@@ -153,6 +157,7 @@ void Connection::handleRequest()
 		if (_request.getMethod() == GET) req_method_str = "GET";
 		else if (_request.getMethod() == POST) req_method_str = "POST";
 		else if (_request.getMethod() == DELETE) req_method_str = "DELETE";
+		else if (_request.getMethod() == HEAD) req_method_str = "HEAD";
 		else req_method_str = "UNKNOWN";
 
 		bool is_allowed = false;
@@ -163,6 +168,8 @@ void Connection::handleRequest()
 			}
 		}
 
+		if (req_method_str == "HEAD")
+			req_method_str = "GET"; // Handle HEAD as GET internally, but we'll just send headers later without body.
 		if (!is_allowed) {
 			_response.buildErrorResponse(405, _matched_server->error_pages);
 			_header_buffer = _response.getHeadersAsString();

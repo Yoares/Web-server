@@ -25,6 +25,7 @@ enum State
 enum Method
 {
 	GET,
+	HEAD,
 	POST,
 	DELETE,
 	UNKNOWN

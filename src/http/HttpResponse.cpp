@@ -41,6 +41,8 @@ std::string HttpResponse::getReasonPhrase(int code) const {
 		case 501: return "Not Implemented";
 		case 411: return "Length Required";
 		case 431: return "Request Header Fields Too Large";
+		case 301: return "Moved Permanently";
+		case 403: return "Forbidden";
         default:  return "Unknown Error";
     }
 }
