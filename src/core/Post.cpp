@@ -1,4 +1,5 @@
 #include "../../inc/core/Post.hpp"
+#include "cgi/CgiHandler.hpp"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>

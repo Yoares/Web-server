@@ -1,6 +1,7 @@
 #include "../../inc/core/Connection.hpp"
 #include "../../inc/utils/MimeTypes.hpp"
 #include "../../inc/utils/Helpers.hpp"
+#include "cgi/CgiHandler.hpp"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
@@ -140,58 +141,64 @@ void Connection::handleGet(const Location& loc) {
 
     std::string _path = resolvePhysicalPath(_request.getPath(), loc);
 
-    if (_path.empty() || _request.getPath().find("..") != std::string::npos)
-    {
+    // Validate path
+    if (_path.empty() || _request.getPath().find("..") != std::string::npos) {
         _response.buildErrorResponse(400, _matched_server->error_pages);
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
         return;
     }
+    // CGI check
+    std::string ext;
+    size_t dot = _path.find_last_of('.');
+    if (dot != std::string::npos)
+        ext = _path.substr(dot);
+
+    std::map<std::string, std::string>::const_iterator it = loc.cgi_pass.find(ext);
+    if (it != loc.cgi_pass.end()) {
+        std::string cgi_bin = it->second;
+        CgiHandler cgi(_request, _response, loc, *_matched_server, cgi_bin, _path);
+        cgi.execute();
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
+
     struct stat lst;
-    if (lstat(_path.c_str(), &lst) == -1) // symlinks protection
-    {   
-        if(errno == ENOENT)
+    if (lstat(_path.c_str(), &lst) == -1) {
+        if (errno == ENOENT)
             _response.buildErrorResponse(404, _matched_server->error_pages);
         else if (errno == EACCES)
             _response.buildErrorResponse(403, _matched_server->error_pages);
         else
             _response.buildErrorResponse(500, _matched_server->error_pages);
-        
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
-        return ;
+        return;
     }
-
-    if (S_ISLNK(lst.st_mode)){
-         _response.buildErrorResponse(403, _matched_server->error_pages);
-         _header_buffer = _response.getHeadersAsString();
+    if (S_ISLNK(lst.st_mode)) {
+        _response.buildErrorResponse(403, _matched_server->error_pages);
+        _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
-        return ;
+        return;
     }
     struct stat st;
-    if (stat(_path.c_str(), &st) == -1){
-        if(errno == ENOENT)
+    if (stat(_path.c_str(), &st) == -1) {
+        if (errno == ENOENT)
             _response.buildErrorResponse(404, _matched_server->error_pages);
         else if (errno == EACCES)
             _response.buildErrorResponse(403, _matched_server->error_pages);
         else
             _response.buildErrorResponse(500, _matched_server->error_pages);
-
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
-        return ;
+        return;
     }
-
-    // Directory handling
-    if (S_ISDIR(st.st_mode))
-    {
+    if (S_ISDIR(st.st_mode)) {
         handleDirectory(_path, loc);
         return;
     }
-    
-    // Only regular files allowed
-    if (!S_ISREG(st.st_mode))
-    {
+    if (!S_ISREG(st.st_mode)) {
         _response.buildErrorResponse(403, _matched_server->error_pages);
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;

@@ -1,5 +1,6 @@
 #include "../../inc/core/Connection.hpp"
 #include "../../inc/core/Post.hpp"
+#include "cgi/CgiHandler.hpp"
 
 const char* Connection::ConnectionClosed::what() const throw() {
     return "Connection closed safely.";
@@ -13,12 +14,27 @@ void Connection::handlePost(const Location& loc) {
         _is_response_ready = true;
         return;
     }
+    std::string script_path = loc.root + _request.getPath(); // adjust to your actual path resolution logic
+    // Checking if the request targets a CGI script
+    std::string ext;
+    size_t dot = script_path.find_last_of('.');
+    if (dot != std::string::npos)
+        ext = script_path.substr(dot);
 
-    // Instantiate handler and execute logic
+    std::map<std::string, std::string>::const_iterator it = loc.cgi_pass.find(ext);
+    if (it != loc.cgi_pass.end()) {
+        std::string cgi_bin = it->second;
+        CgiHandler cgi(_request, _response, loc, *_matched_server, cgi_bin, script_path);
+        cgi.execute();
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return;
+    }
+
+    // No CGI match
     PostHandler post_handler(_request, _response, *_matched_server, loc);
     post_handler.execute();
 
-    // Finalize response flags for the Connection object
     _header_buffer = _response.getHeadersAsString();
     _is_response_ready = true;
 }

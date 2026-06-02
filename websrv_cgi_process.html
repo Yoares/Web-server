@@ -1,0 +1,597 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.root{padding:8px 0 24px}
+.sidebar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px}
+.sidelink{font-size:12px;padding:4px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+.sidelink.active{background:#534AB7;border-color:#534AB7;color:#fff}
+.chapter{display:none}
+.chapter.visible{display:block}
+.ch-title{font-size:20px;font-weight:500;color:var(--color-text-primary);margin-bottom:4px}
+.ch-sub{font-size:13px;color:var(--color-text-tertiary);margin-bottom:20px}
+.section{margin-bottom:28px}
+.section-title{font-size:15px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px;padding-bottom:6px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.prose{font-size:14px;line-height:1.75;color:var(--color-text-primary)}
+.prose p{margin-bottom:10px}
+.prose p:last-child{margin-bottom:0}
+.analogy{border-left:3px solid #7F77DD;border-radius:0 8px 8px 0;padding:10px 14px;background:var(--color-background-secondary);margin:12px 0;font-size:13px;line-height:1.6;color:var(--color-text-secondary)}
+.analogy strong{color:var(--color-text-primary)}
+.why-box{border-left:3px solid #1D9E75;border-radius:0 8px 8px 0;padding:10px 14px;background:var(--color-background-secondary);margin:12px 0;font-size:13px;line-height:1.6;color:var(--color-text-secondary)}
+.why-box strong{color:var(--color-text-primary)}
+.warn-box{border-left:3px solid #BA7517;border-radius:0 8px 8px 0;padding:10px 14px;background:var(--color-background-secondary);margin:12px 0;font-size:13px;line-height:1.6;color:var(--color-text-secondary)}
+.warn-box strong{color:var(--color-text-primary)}
+.code-block{background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:8px;padding:14px 16px;margin:12px 0;font-family:var(--font-mono);font-size:12px;line-height:1.8;color:var(--color-text-primary);overflow-x:auto;white-space:pre}
+.code-comment{color:var(--color-text-tertiary)}
+.inline{font-family:var(--font-mono);font-size:12px;padding:1px 6px;border-radius:4px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);white-space:nowrap}
+.kw-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kw{display:inline-block;font-size:12px;padding:3px 10px;border-radius:12px}
+.kw-p{background:#EEEDFE;color:#3C3489}
+.kw-t{background:#E1F5EE;color:#085041}
+.kw-a{background:#FAEEDA;color:#633806}
+.kw-c{background:#FAECE7;color:#712B13}
+@media(prefers-color-scheme:dark){
+.kw-p{background:#3C3489;color:#CECBF6}
+.kw-t{background:#085041;color:#9FE1CB}
+.kw-a{background:#633806;color:#FAC775}
+.kw-c{background:#712B13;color:#F5C4B3}
+}
+.step-num{display:inline-block;width:22px;height:22px;border-radius:50%;background:#534AB7;color:#fff;font-size:11px;font-weight:500;text-align:center;line-height:22px;margin-right:8px;flex-shrink:0}
+.step-row{display:flex;align-items:flex-start;gap:0;margin-bottom:14px}
+.step-row .step-num{margin-top:1px}
+.step-body{flex:1;font-size:14px;line-height:1.7;color:var(--color-text-primary)}
+.nav-row{display:flex;gap:10px;justify-content:space-between;margin-top:8px}
+.nav-btn{flex:1;padding:9px 14px;border-radius:8px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);font-size:13px;cursor:pointer;text-align:center}
+.nav-btn:hover{background:var(--color-background-secondary)}
+.nav-btn.next{background:#534AB7;border-color:#534AB7;color:#fff}
+.nav-btn.next:hover{background:#3C3489}
+.visual-box{border:0.5px solid var(--color-border-secondary);border-radius:8px;overflow:hidden;margin:12px 0}
+.visual-row{display:flex;align-items:stretch;font-size:12px;font-family:var(--font-mono)}
+.visual-cell{padding:8px 12px;flex:1;text-align:center;border-right:0.5px solid var(--color-border-secondary);line-height:1.5}
+.visual-cell:last-child{border-right:none}
+.visual-cell.head{background:var(--color-background-secondary);font-family:var(--font-sans);font-size:11px;font-weight:500;color:var(--color-text-tertiary)}
+.visual-cell.hl{background:#EEEDFE;color:#3C3489}
+.visual-cell.hl2{background:#E1F5EE;color:#085041}
+.visual-cell.hl3{background:#FAEEDA;color:#633806}
+@media(prefers-color-scheme:dark){
+.visual-cell.hl{background:#26215C;color:#CECBF6}
+.visual-cell.hl2{background:#04342C;color:#9FE1CB}
+.visual-cell.hl3{background:#412402;color:#FAC775}
+}
+.check-list{list-style:none;padding:0;margin:10px 0}
+.check-list li{font-size:13px;color:var(--color-text-secondary);padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;gap:8px}
+.check-list li:last-child{border-bottom:none}
+.check-list li::before{content:"";width:14px;height:14px;border-radius:50%;border:1.5px solid var(--color-border-secondary);flex-shrink:0}
+.check-list li.done::before{background:#1D9E75;border-color:#1D9E75;content:"✓";color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center}
+</style>
+
+<h2 class="sr-only">CGI from A to Z — interactive guide covering all concepts and code steps</h2>
+
+<div class="root">
+<div class="sidebar" id="sidebar"></div>
+<div id="chapters"></div>
+</div>
+
+<script>
+const chapters = [
+{
+  title: "What is CGI?",
+  sub: "The concept, the purpose, and the mental model",
+  sections: [
+    {
+      title: "The core idea — what problem does CGI solve?",
+      content: `<div class="prose">
+<p>Your web server (webserv) is very good at one thing: sending files. A browser asks for <span class="inline">/index.html</span> and the server reads that file from disk and sends it. Static. Done.</p>
+<p>But what if the browser asks for something that <em>doesn't exist as a file</em> — like the result of a calculation, a database query, or a form submission? The server can't handle that alone. It needs to run a <em>program</em> and send back whatever that program outputs.</p>
+<p>That's exactly what CGI does. <strong>CGI (Common Gateway Interface)</strong> is a standard that defines how a web server can run an external program and use its output as the HTTP response.</p>
+</div>
+<div class="analogy"><strong>Analogy:</strong> A restaurant (your server) normally serves pre-made food from a display case (static files). But when a customer orders something custom, the waiter (CGI) takes the order to the kitchen (Python/PHP script), the chef cooks it fresh, and the waiter brings it back. CGI is the protocol the waiter and kitchen use to communicate.</div>
+<div class="prose"><p>The word "interface" is key — CGI is not a program, not a language, not a library. It's a <em>contract</em>: if you launch this program this way, pass it these variables, connect these pipes, it will produce an HTTP response on its stdout.</p></div>`
+    },
+    {
+      title: "The two sides of CGI",
+      content: `<div class="prose"><p>There are exactly two participants:</p></div>
+<div class="step-row"><span class="step-num">1</span><div class="step-body"><strong>Your server (webserv)</strong> — receives the HTTP request, decides it's a CGI request, sets up the environment, launches the script, reads its output, and wraps it in an HTTP response.</div></div>
+<div class="step-row"><span class="step-num">2</span><div class="step-body"><strong>The CGI script</strong> (hello.py, form.php…) — a normal program that reads its inputs from environment variables and stdin, does whatever it wants, then prints an HTTP response to stdout.</div></div>
+<div class="prose"><p>The script has no idea it's talking to a web server. It just reads env vars and prints to stdout. This simplicity is why CGI has worked since 1993 — any language that can read environment variables and print to stdout can be a CGI script.</p></div>
+<div class="kw-grid">
+<span class="kw kw-p">CGI</span><span class="kw kw-p">gateway</span><span class="kw kw-t">static vs dynamic</span><span class="kw kw-t">stdout</span><span class="kw kw-a">environment variables</span><span class="kw kw-c">HTTP response</span>
+</div>`
+    },
+    {
+      title: "How the server knows it's a CGI request",
+      content: `<div class="prose"><p>Your server checks the request path against its config. Two common patterns:</p></div>
+<div class="code-block"><span class="code-comment"># Pattern 1: by directory</span>
+/cgi-bin/anything  →  run as CGI
+
+<span class="code-comment"># Pattern 2: by file extension</span>
+anything.py   →  run with python3
+anything.php  →  run with php-cgi</div>
+<div class="prose"><p>In your webserv config, there's a block that maps extensions to interpreters. When the request path matches, instead of opening a file and sending it, you go down the CGI path.</p></div>
+<div class="why-box"><strong>Why extensions?</strong> The file <span class="inline">form.py</span> exists on disk, but you don't <em>send</em> the Python source code to the browser — that would be a security disaster. Instead, you <em>execute</em> it with the Python interpreter and send the output.</div>`
+    }
+  ]
+},
+{
+  title: "Processes & the OS",
+  sub: "fork, execve, pipes — what they are and why you need them",
+  sections: [
+    {
+      title: "What is a process?",
+      content: `<div class="prose">
+<p>Before touching any code, you need to understand what a <strong>process</strong> is. A process is a running program — it has its own memory, its own stack, its own file descriptors, its own environment variables. Your webserv is one process. When it runs a CGI script, that script must become a <em>separate process</em>.</p>
+<p>Why separate? Because the script might crash, take forever, or use a different language. You don't want it corrupting your server's memory or blocking all other requests.</p>
+</div>
+<div class="analogy"><strong>Analogy:</strong> Your server is one employee. When work arrives that requires special skills (Python), you hire a contractor (new process) for that specific job. If the contractor messes up, the employee is unaffected.</div>
+<div class="prose"><p>The OS gives you two system calls to create and replace processes: <span class="inline">fork()</span> and <span class="inline">execve()</span>. These are the heart of CGI.</p></div>`
+    },
+    {
+      title: "fork() — creating a child process",
+      content: `<div class="prose">
+<p><span class="inline">fork()</span> duplicates the current process. After the call, you have two <em>identical</em> processes running the same code at the same point. The only difference: <span class="inline">fork()</span> returns <strong>0 to the child</strong> and the <strong>child's PID to the parent</strong>.</p>
+</div>
+<div class="code-block">pid_t pid = fork();
+
+if (pid == 0) {
+    <span class="code-comment">// This code runs in the CHILD process</span>
+    <span class="code-comment">// pid == 0 means "I am the child"</span>
+}
+else if (pid > 0) {
+    <span class="code-comment">// This code runs in the PARENT process</span>
+    <span class="code-comment">// pid == the child's process ID</span>
+}
+else {
+    <span class="code-comment">// pid == -1 means fork failed (no memory, too many processes)</span>
+    perror("fork failed");
+}</div>
+<div class="why-box"><strong>Why does fork return twice?</strong> Because it runs in both processes simultaneously. The same function call produces two different return values — one in each process. This is confusing at first but becomes natural once you internalize that after fork() there are two programs running.</div>`
+    },
+    {
+      title: "execve() — replacing the child with the script",
+      content: `<div class="prose">
+<p>After forking, the child is still running your server's code. You need it to become the Python interpreter. <span class="inline">execve()</span> replaces the current process's code with a different program — the process ID stays the same, but the program running inside it changes completely.</p>
+</div>
+<div class="code-block"><span class="code-comment">// execve signature:</span>
+int execve(const char *path, char *const argv[], char *const envp[]);
+
+<span class="code-comment">// path  = the program to run</span>
+<span class="code-comment">// argv  = arguments array (argv[0] = program name, NULL-terminated)</span>
+<span class="code-comment">// envp  = environment variables array (NULL-terminated)</span>
+
+char *args[] = {
+    (char*)"/usr/bin/python3",   <span class="code-comment">// the interpreter</span>
+    (char*)"cgi-bin/hello.py",   <span class="code-comment">// the script</span>
+    NULL                          <span class="code-comment">// MUST end with NULL</span>
+};
+execve(args[0], args, env);
+<span class="code-comment">// if execve succeeds, this line is NEVER reached</span>
+<span class="code-comment">// the process is now python3, not your server</span>
+_exit(1); <span class="code-comment">// only reached if execve failed</span></div>
+<div class="warn-box"><strong>Critical:</strong> If <span class="inline">execve()</span> succeeds, it <em>never returns</em>. The child process is now python3. If the line after execve runs, something went wrong — always call <span class="inline">_exit()</span> there, not <span class="inline">exit()</span>. The difference: <span class="inline">_exit()</span> terminates immediately without running C++ destructors, which would corrupt your parent's state.</div>
+<div class="kw-grid">
+<span class="kw kw-p">process</span><span class="kw kw-p">PID</span><span class="kw kw-t">fork()</span><span class="kw kw-t">execve()</span><span class="kw kw-a">parent process</span><span class="kw kw-a">child process</span><span class="kw kw-c">_exit()</span>
+</div>`
+    }
+  ]
+},
+{
+  title: "Pipes — the data channel",
+  sub: "How your server talks to the CGI script",
+  sections: [
+    {
+      title: "What is a pipe?",
+      content: `<div class="prose">
+<p>Two separate processes can't share memory. So how does your server pass the POST body to the script, and how does the script send its output back? Through a <strong>pipe</strong>.</p>
+<p>A pipe is a one-directional data channel managed by the OS. It has two ends: a write end and a read end. Whatever you write into one end comes out the other end in order. Think of it as a physical tube.</p>
+</div>
+<div class="code-block">int pipefd[2];
+pipe(pipefd);
+<span class="code-comment">// pipefd[0] = READ end  (you read from here)</span>
+<span class="code-comment">// pipefd[1] = WRITE end (you write into here)</span></div>
+<div class="analogy"><strong>Analogy:</strong> A pipe is like a mail slot in a door. You push papers in from one side, someone on the other side pulls them out. One direction only. If you need two-way communication, you need two pipes.</div>
+<div class="prose"><p>For CGI you need exactly <strong>two pipes</strong>:</p></div>
+<div class="step-row"><span class="step-num">1</span><div class="step-body"><strong>stdin pipe</strong> — server writes the POST body into it, script reads from it as stdin.</div></div>
+<div class="step-row"><span class="step-num">2</span><div class="step-body"><strong>stdout pipe</strong> — script prints its output to stdout, server reads from it.</div></div>`
+    },
+    {
+      title: "dup2() — rewiring file descriptors",
+      content: `<div class="prose">
+<p>Here's the subtle part. After forking, the child needs its <span class="inline">STDIN_FILENO</span> (fd 0) to be the read end of the stdin pipe, and its <span class="inline">STDOUT_FILENO</span> (fd 1) to be the write end of the stdout pipe.</p>
+<p><span class="inline">dup2(oldfd, newfd)</span> makes <span class="inline">newfd</span> point to the same thing as <span class="inline">oldfd</span>. After this call, writing to fd 1 goes into the pipe.</p>
+</div>
+<div class="code-block"><span class="code-comment">// In the CHILD, before execve:</span>
+dup2(stdin_pipe[0],  STDIN_FILENO);   <span class="code-comment">// fd 0 = read from stdin pipe</span>
+dup2(stdout_pipe[1], STDOUT_FILENO);  <span class="code-comment">// fd 1 = write to stdout pipe</span>
+
+<span class="code-comment">// Now close all pipe ends — the dup2'd fds handle it</span>
+close(stdin_pipe[0]);
+close(stdin_pipe[1]);
+close(stdout_pipe[0]);
+close(stdout_pipe[1]);
+
+execve(...);</div>
+<div class="why-box"><strong>Why close after dup2?</strong> After dup2, you have two fds pointing to the same pipe end. If you don't close the originals, the pipe never gets EOF — the reader blocks forever waiting for data that will never come. Always close every pipe fd you don't actively use.</div>
+<div class="visual-box">
+<div class="visual-row"><div class="visual-cell head">before dup2</div><div class="visual-cell head">fd 0</div><div class="visual-cell head">fd 1</div><div class="visual-cell head">fd 4</div><div class="visual-cell head">fd 5</div></div>
+<div class="visual-row"><div class="visual-cell" style="font-family:var(--font-sans);font-size:12px;color:var(--color-text-secondary)">child after fork</div><div class="visual-cell">terminal</div><div class="visual-cell">terminal</div><div class="visual-cell hl2">pipe read</div><div class="visual-cell hl3">pipe write</div></div>
+<div class="visual-row"><div class="visual-cell" style="font-family:var(--font-sans);font-size:12px;color:var(--color-text-secondary)">after dup2</div><div class="visual-cell hl2">pipe read</div><div class="visual-cell hl3">pipe write</div><div class="visual-cell" style="color:var(--color-text-tertiary)">close</div><div class="visual-cell" style="color:var(--color-text-tertiary)">close</div></div>
+</div>
+<div class="kw-grid">
+<span class="kw kw-p">pipe()</span><span class="kw kw-p">dup2()</span><span class="kw kw-t">file descriptor</span><span class="kw kw-t">STDIN_FILENO</span><span class="kw kw-a">STDOUT_FILENO</span><span class="kw kw-a">EOF</span><span class="kw kw-c">read end / write end</span>
+</div>`
+    },
+    {
+      title: "The full fork+pipe pattern",
+      content: `<div class="prose"><p>Putting it all together — this is the skeleton you'll build on:</p></div>
+<div class="code-block">int stdin_pipe[2],  stdout_pipe[2];
+pipe(stdin_pipe);
+pipe(stdout_pipe);
+
+pid_t pid = fork();
+
+if (pid == 0) {
+    <span class="code-comment">// CHILD</span>
+    dup2(stdin_pipe[0],  STDIN_FILENO);
+    dup2(stdout_pipe[1], STDOUT_FILENO);
+    close(stdin_pipe[0]);  close(stdin_pipe[1]);
+    close(stdout_pipe[0]); close(stdout_pipe[1]);
+
+    char *args[] = {(char*)"/usr/bin/python3",
+                    (char*)"script.py", NULL};
+    execve(args[0], args, env);
+    _exit(1);
+}
+
+<span class="code-comment">// PARENT</span>
+close(stdin_pipe[0]);   <span class="code-comment">// parent won't read from stdin pipe</span>
+close(stdout_pipe[1]);  <span class="code-comment">// parent won't write to stdout pipe</span>
+
+<span class="code-comment">// send POST body to script</span>
+write(stdin_pipe[1], post_body.c_str(), post_body.size());
+close(stdin_pipe[1]);   <span class="code-comment">// close = script gets EOF on stdin</span>
+
+<span class="code-comment">// read script output</span>
+std::string output;
+char buf[4096];
+int n;
+while ((n = read(stdout_pipe[0], buf, sizeof(buf))) > 0)
+    output.append(buf, n);
+close(stdout_pipe[0]);
+
+waitpid(pid, NULL, 0);  <span class="code-comment">// wait for child to finish</span></div>
+<div class="why-box"><strong>Why waitpid?</strong> When a child process finishes, it becomes a "zombie" — it holds a slot in the OS process table until the parent acknowledges it. <span class="inline">waitpid()</span> collects the exit status and frees that slot. Forgetting waitpid leaks zombie processes.</div>`
+    }
+  ]
+},
+{
+  title: "Environment variables",
+  sub: "How the server tells the script about the request",
+  sections: [
+    {
+      title: "What are environment variables?",
+      content: `<div class="prose">
+<p>Environment variables are key=value strings that every process has. They're inherited from the parent. When you run <span class="inline">execve()</span>, you pass an array of strings in <span class="inline">key=value</span> format — the child process sees them as its environment.</p>
+<p>This is how CGI scripts know about the HTTP request without any shared memory or complex protocol. The server encodes everything the script needs to know into these strings before launching it.</p>
+</div>
+<div class="code-block"><span class="code-comment">// Build env before fork()</span>
+std::vector&lt;std::string&gt; env_strings;
+env_strings.push_back("REQUEST_METHOD=" + request.method);
+env_strings.push_back("QUERY_STRING="   + request.query_string);
+env_strings.push_back("HTTP_COOKIE="    + request.getHeader("Cookie"));
+env_strings.push_back("CONTENT_TYPE="  + request.getHeader("Content-Type"));
+env_strings.push_back("CONTENT_LENGTH="+ std::to_string(request.body.size()));
+env_strings.push_back("SCRIPT_FILENAME="+ script_path);
+env_strings.push_back("SERVER_NAME=localhost");
+env_strings.push_back("SERVER_PORT=8080");
+
+<span class="code-comment">// Convert to char* array for execve</span>
+std::vector&lt;char*&gt; env;
+for (auto& s : env_strings)
+    env.push_back(const_cast&lt;char*&gt;(s.c_str()));
+env.push_back(NULL); <span class="code-comment">// must end with NULL</span></div>
+<div class="warn-box"><strong>Lifetime trap:</strong> The <span class="inline">env_strings</span> vector must stay alive until after <span class="inline">execve()</span>. If it goes out of scope, the char* pointers in <span class="inline">env[]</span> point to freed memory — undefined behavior. Keep both in the same scope.</div>`
+    },
+    {
+      title: "The mandatory CGI variables",
+      content: `<div class="prose"><p>The CGI standard requires these. Your script won't work without them:</p></div>
+<div class="visual-box">
+<div class="visual-row"><div class="visual-cell head" style="flex:1.2">variable</div><div class="visual-cell head" style="flex:2">what it contains</div><div class="visual-cell head" style="flex:1.5">example value</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">REQUEST_METHOD</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">GET, POST, DELETE…</div><div class="visual-cell hl3" style="flex:1.5">POST</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">QUERY_STRING</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">everything after ? in the URL</div><div class="visual-cell hl3" style="flex:1.5">name=john&age=30</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">CONTENT_LENGTH</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">size of POST body in bytes</div><div class="visual-cell hl3" style="flex:1.5">27</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">CONTENT_TYPE</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">format of POST body</div><div class="visual-cell hl3" style="flex:1.5">application/x-www-form-urlencoded</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">HTTP_COOKIE</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">Cookie header from browser</div><div class="visual-cell hl3" style="flex:1.5">session=abc; pref=dark</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">SCRIPT_FILENAME</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">full path to the script</div><div class="visual-cell hl3" style="flex:1.5">/var/www/cgi-bin/form.py</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">SERVER_NAME</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">server hostname</div><div class="visual-cell hl3" style="flex:1.5">localhost</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">SERVER_PORT</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">port the server listens on</div><div class="visual-cell hl3" style="flex:1.5">8080</div></div>
+</div>
+<div class="kw-grid">
+<span class="kw kw-p">REQUEST_METHOD</span><span class="kw kw-p">QUERY_STRING</span><span class="kw kw-t">CONTENT_LENGTH</span><span class="kw kw-t">HTTP_COOKIE</span><span class="kw kw-a">envp[]</span><span class="kw kw-c">NULL-terminated array</span>
+</div>`
+    }
+  ]
+},
+{
+  title: "CGI output & cookies",
+  sub: "Parsing what the script returns and handling Set-Cookie",
+  sections: [
+    {
+      title: "What a CGI script outputs",
+      content: `<div class="prose">
+<p>The script writes to its stdout. What it writes looks like a mini HTTP response: headers, a blank line, then the body. Your server reads this from the pipe and must parse it.</p>
+</div>
+<div class="code-block"><span class="code-comment">--- example CGI output on stdout ---</span>
+Content-Type: text/html\r\n
+Set-Cookie: session=abc123; HttpOnly; Path=/\r\n
+\r\n
+&lt;html&gt;&lt;body&gt;Hello!&lt;/body&gt;&lt;/html&gt;</div>
+<div class="warn-box"><strong>The blank line is not optional.</strong> CGI scripts MUST print a blank line between headers and body. If it's missing, your parser won't find the separator and the entire output will be treated as headers or body — either way, broken.</div>
+<div class="prose"><p>Your parsing job:</p></div>
+<div class="step-row"><span class="step-num">1</span><div class="step-body">Find the separator: search for <span class="inline">\r\n\r\n</span> or <span class="inline">\n\n</span> in the output string.</div></div>
+<div class="step-row"><span class="step-num">2</span><div class="step-body">Everything before it = CGI headers. Split by newline to get individual headers.</div></div>
+<div class="step-row"><span class="step-num">3</span><div class="step-body">Everything after it = the response body. Send it as-is.</div></div>
+<div class="step-row"><span class="step-num">4</span><div class="step-body">Forward each CGI header into your HTTP response (except rewrite <span class="inline">Status:</span> as the HTTP status line).</div></div>`
+    },
+    {
+      title: "Parsing the output in C++",
+      content: `<div class="code-block">std::string output; <span class="code-comment">// everything read from stdout pipe</span>
+
+<span class="code-comment">// find the header/body separator</span>
+size_t sep = output.find("\r\n\r\n");
+if (sep == std::string::npos)
+    sep = output.find("\n\n");
+if (sep == std::string::npos) {
+    <span class="code-comment">// no separator = malformed CGI output → 500 error</span>
+    return send500();
+}
+
+std::string cgi_headers = output.substr(0, sep);
+std::string cgi_body    = output.substr(sep + 4); <span class="code-comment">// skip \r\n\r\n</span>
+
+<span class="code-comment">// build your HTTP response</span>
+std::string response = "HTTP/1.1 200 OK\r\n";
+
+<span class="code-comment">// forward each CGI header line</span>
+std::istringstream ss(cgi_headers);
+std::string line;
+while (std::getline(ss, line)) {
+    if (!line.empty() && line.back() == '\r')
+        line.pop_back(); <span class="code-comment">// strip trailing \r</span>
+    if (line.substr(0, 7) == "Status:") {
+        <span class="code-comment">// rewrite as HTTP status line</span>
+        response = "HTTP/1.1 " + line.substr(8) + "\r\n";
+    } else {
+        response += line + "\r\n"; <span class="code-comment">// forward as-is</span>
+    }
+}
+response += "\r\n";        <span class="code-comment">// end of headers</span>
+response += cgi_body;      <span class="code-comment">// body</span></div>
+<div class="why-box"><strong>Why handle Status: specially?</strong> The script can't write an HTTP status line itself (it doesn't know the protocol version). Instead it writes <span class="inline">Status: 302 Found</span> and your server converts that into the actual HTTP/1.1 status line.</div>`
+    },
+    {
+      title: "Cookies — reading them",
+      content: `<div class="prose">
+<p>When the browser sends a request it includes a <span class="inline">Cookie:</span> header with all cookies for that domain. Your job is simple: read that header from the HTTP request and pass it to the script as <span class="inline">HTTP_COOKIE</span>.</p>
+</div>
+<div class="code-block"><span class="code-comment">// From the parsed HTTP request:</span>
+std::string cookie_header = request.getHeader("Cookie");
+<span class="code-comment">// e.g. "session=abc123; theme=dark; user=john"</span>
+
+<span class="code-comment">// Pass it straight into the CGI environment:</span>
+env_strings.push_back("HTTP_COOKIE=" + cookie_header);
+
+<span class="code-comment">// The script reads it in Python like this:</span>
+<span class="code-comment">// import os</span>
+<span class="code-comment">// cookies = os.environ.get("HTTP_COOKIE", "")</span>
+<span class="code-comment">// → "session=abc123; theme=dark; user=john"</span></div>
+<div class="prose"><p>On the server side you don't need to parse the cookie string — just forward the raw header value. The script parses it however it needs.</p></div>`
+    },
+    {
+      title: "Cookies — setting them",
+      content: `<div class="prose">
+<p>When a script wants to set a cookie in the browser, it prints a <span class="inline">Set-Cookie:</span> header in its output. Your server must forward this header in the HTTP response — the browser then stores the cookie automatically.</p>
+</div>
+<div class="code-block"><span class="code-comment">--- script output ---</span>
+Content-Type: text/html
+Set-Cookie: session=xyz789; HttpOnly; Path=/; Max-Age=3600
+Set-Cookie: theme=dark; Path=/
+
+&lt;html&gt;...&lt;/html&gt;</div>
+<div class="prose"><p>Multiple <span class="inline">Set-Cookie</span> headers are allowed. Your parser already handles this — each line from the CGI headers section gets forwarded. No special treatment needed beyond what you wrote above.</p></div>
+<div class="visual-box">
+<div class="visual-row"><div class="visual-cell head" style="flex:1.2">attribute</div><div class="visual-cell head" style="flex:2">what it does</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">HttpOnly</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">JS cannot read this cookie (prevents XSS theft)</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">Path=/</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">cookie is sent for all paths on this domain</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">Max-Age=3600</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">expires in 3600 seconds (1 hour); 0 = delete immediately</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">Secure</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">only sent over HTTPS connections</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:1.2">SameSite=Lax</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">not sent on cross-site requests (CSRF protection)</div></div>
+</div>
+<div class="kw-grid">
+<span class="kw kw-p">Set-Cookie</span><span class="kw kw-p">HttpOnly</span><span class="kw kw-t">Max-Age</span><span class="kw kw-t">Path</span><span class="kw kw-a">Secure</span><span class="kw kw-a">SameSite</span><span class="kw kw-c">cookie forwarding</span>
+</div>`
+    }
+  ]
+},
+{
+  title: "Timeout & errors",
+  sub: "What happens when things go wrong",
+  sections: [
+    {
+      title: "Why you need a timeout",
+      content: `<div class="prose">
+<p>A CGI script can contain an infinite loop, a deadlock, or just be very slow. Without a timeout, your server would block reading from the pipe forever — freezing that connection (and potentially all connections if your event loop is blocked).</p>
+<p>You must kill the child process if it takes too long.</p>
+</div>
+<div class="code-block"><span class="code-comment">// After fork, in the parent:</span>
+int status;
+time_t start = time(NULL);
+pid_t result;
+
+while (true) {
+    result = waitpid(pid, &status, WNOHANG);
+    <span class="code-comment">// WNOHANG = don't block, return 0 if child still running</span>
+
+    if (result == pid) break;        <span class="code-comment">// child finished normally</span>
+    if (time(NULL) - start > 5) {    <span class="code-comment">// 5 second timeout</span>
+        kill(pid, SIGKILL);          <span class="code-comment">// force kill the child</span>
+        waitpid(pid, NULL, 0);       <span class="code-comment">// collect the zombie</span>
+        return send_error(504);      <span class="code-comment">// 504 Gateway Timeout</span>
+    }
+    usleep(10000); <span class="code-comment">// wait 10ms before checking again</span>
+}</div>
+<div class="why-box"><strong>Why SIGKILL and not SIGTERM?</strong> SIGTERM is a polite request to stop — the process can ignore it. SIGKILL cannot be caught or ignored. It kills the process immediately. For a misbehaving CGI script, you want SIGKILL.</div>`
+    },
+    {
+      title: "Error responses you must handle",
+      content: `<div class="prose"><p>Each failure point has a specific HTTP status code:</p></div>
+<div class="visual-box">
+<div class="visual-row"><div class="visual-cell head" style="flex:0.8">code</div><div class="visual-cell head" style="flex:1.2">name</div><div class="visual-cell head" style="flex:2">when to send it</div></div>
+<div class="visual-row"><div class="visual-cell hl2" style="flex:0.8">403</div><div class="visual-cell" style="flex:1.2;font-family:var(--font-sans);font-size:12px">Forbidden</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">script exists but is not executable (check permissions)</div></div>
+<div class="visual-row"><div class="visual-cell hl3" style="flex:0.8">404</div><div class="visual-cell" style="flex:1.2;font-family:var(--font-sans);font-size:12px">Not Found</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">script file does not exist at that path</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:0.8">500</div><div class="visual-cell" style="flex:1.2;font-family:var(--font-sans);font-size:12px">Internal Server Error</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">fork failed, execve failed, script crashed (non-zero exit), malformed CGI output</div></div>
+<div class="visual-row"><div class="visual-cell hl" style="flex:0.8">504</div><div class="visual-cell" style="flex:1.2;font-family:var(--font-sans);font-size:12px">Gateway Timeout</div><div class="visual-cell" style="flex:2;font-family:var(--font-sans);font-size:12px">script exceeded your timeout limit</div></div>
+</div>
+<div class="code-block"><span class="code-comment">// Check if script is executable before forking:</span>
+if (access(script_path.c_str(), X_OK) != 0) {
+    if (access(script_path.c_str(), F_OK) != 0)
+        return send_error(404); <span class="code-comment">// doesn't exist</span>
+    return send_error(403);     <span class="code-comment">// exists but not executable</span>
+}
+
+<span class="code-comment">// Check child exit code after waitpid:</span>
+if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+    return send_error(500); <span class="code-comment">// script exited with error</span></div>
+<div class="kw-grid">
+<span class="kw kw-p">SIGKILL</span><span class="kw kw-p">WNOHANG</span><span class="kw kw-t">waitpid()</span><span class="kw kw-t">WEXITSTATUS</span><span class="kw kw-a">504 timeout</span><span class="kw kw-a">500 server error</span><span class="kw kw-c">access()</span>
+</div>`
+    }
+  ]
+},
+{
+  title: "Testing your CGI",
+  sub: "Scripts to test each case, and how to run them",
+  sections: [
+    {
+      title: "Test script 1 — basic GET",
+      content: `<div class="prose"><p>Start here. Save as <span class="inline">cgi-bin/hello.py</span> and make it executable with <span class="inline">chmod +x</span>.</p></div>
+<div class="code-block">#!/usr/bin/env python3
+import os
+
+print("Content-Type: text/html")
+print("")   <span class="code-comment"># blank line — mandatory</span>
+print("&lt;html&gt;&lt;body&gt;")
+print("&lt;h1&gt;CGI works!&lt;/h1&gt;")
+print(f"&lt;p&gt;Method: {os.environ.get('REQUEST_METHOD','?')}&lt;/p&gt;")
+print(f"&lt;p&gt;Query: {os.environ.get('QUERY_STRING','')}&lt;/p&gt;")
+print("&lt;/body&gt;&lt;/html&gt;")</div>
+<div class="prose"><p>Test without server first:</p></div>
+<div class="code-block">REQUEST_METHOD=GET QUERY_STRING=name=john python3 cgi-bin/hello.py</div>
+<div class="prose"><p>Then test with curl once your server runs:</p></div>
+<div class="code-block">curl -v "http://localhost:8080/cgi-bin/hello.py?name=john"</div>`
+    },
+    {
+      title: "Test script 2 — POST body",
+      content: `<div class="code-block">#!/usr/bin/env python3
+import os, sys
+
+length = int(os.environ.get("CONTENT_LENGTH", 0))
+body   = sys.stdin.read(length) if length > 0 else ""
+
+print("Content-Type: text/html")
+print("")
+print(f"&lt;p&gt;POST body received: {body}&lt;/p&gt;")</div>
+<div class="code-block">curl -v -X POST -d "username=john&password=1234" \
+     http://localhost:8080/cgi-bin/post.py</div>`
+    },
+    {
+      title: "Test script 3 — cookies",
+      content: `<div class="code-block">#!/usr/bin/env python3
+import os
+
+cookie_str = os.environ.get("HTTP_COOKIE", "")
+cookies = {}
+for part in cookie_str.split(";"):
+    if "=" in part:
+        k, v = part.strip().split("=", 1)
+        cookies[k] = v
+
+session = cookies.get("session", "none")
+
+print("Content-Type: text/html")
+print("Set-Cookie: session=newvalue999; HttpOnly; Path=/")
+print("")
+print(f"&lt;p&gt;Your old session was: {session}&lt;/p&gt;")
+print(f"&lt;p&gt;I just set a new one.&lt;/p&gt;")</div>
+<div class="code-block"><span class="code-comment"># First request — no cookie</span>
+curl -v http://localhost:8080/cgi-bin/cookie.py
+
+<span class="code-comment"># Second request — send cookie back</span>
+curl -v --cookie "session=newvalue999" \
+     http://localhost:8080/cgi-bin/cookie.py</div>
+<div class="kw-grid">
+<span class="kw kw-p">chmod +x</span><span class="kw kw-t">curl -v</span><span class="kw kw-t">--cookie</span><span class="kw kw-a">CONTENT_LENGTH</span><span class="kw kw-a">sys.stdin.read</span><span class="kw kw-c">Set-Cookie</span>
+</div>`
+    },
+    {
+      title: "Your integration checklist",
+      content: `<div class="prose"><p>Run through this before calling your CGI done:</p></div>
+<ul class="check-list" id="checklist">
+<li data-i="0">Basic GET request runs the script and returns HTML</li>
+<li data-i="1">QUERY_STRING is correctly populated from the URL</li>
+<li data-i="2">POST body is passed to script stdin and CONTENT_LENGTH matches</li>
+<li data-i="3">HTTP_COOKIE passes the Cookie header to the script</li>
+<li data-i="4">Set-Cookie from script output appears in HTTP response headers</li>
+<li data-i="5">Non-existent script returns 404</li>
+<li data-i="6">Non-executable script returns 403</li>
+<li data-i="7">Infinite loop script gets killed and returns 504 after timeout</li>
+<li data-i="8">Crashing script (exit 1) returns 500</li>
+<li data-i="9">Multiple Set-Cookie headers all forwarded correctly</li>
+</ul>
+<div style="margin-top:10px;font-size:12px;color:var(--color-text-tertiary)">Click items to check them off</div>`
+    }
+  ]
+}
+];
+
+let cur = 0;
+const sidebar = document.getElementById('sidebar');
+const chapDiv = document.getElementById('chapters');
+
+chapters.forEach((ch, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'sidelink' + (i === 0 ? ' active' : '');
+  btn.textContent = (i+1) + '. ' + ch.title;
+  btn.onclick = () => goTo(i);
+  sidebar.appendChild(btn);
+
+  const div = document.createElement('div');
+  div.className = 'chapter' + (i === 0 ? ' visible' : '');
+  div.id = 'ch' + i;
+  div.innerHTML = `
+    <div class="ch-title">${ch.title}</div>
+    <div class="ch-sub">${ch.sub}</div>
+    ${ch.sections.map(s => `
+      <div class="section">
+        <div class="section-title">${s.title}</div>
+        ${s.content}
+      </div>`).join('')}
+    <div class="nav-row">
+      ${i > 0 ? `<button class="nav-btn" onclick="goTo(${i-1})">← ${chapters[i-1].title}</button>` : '<span></span>'}
+      ${i < chapters.length-1 ? `<button class="nav-btn next" onclick="goTo(${i+1})">${chapters[i+1].title} →</button>` : '<button class="nav-btn next" onclick="sendPrompt(\'I finished the CGI guide. What should I work on first in my code?\')">Start coding ↗</button>'}
+    </div>`;
+  chapDiv.appendChild(div);
+});
+
+function goTo(i) {
+  cur = i;
+  document.querySelectorAll('.chapter').forEach((d,j) => d.classList.toggle('visible', j===i));
+  document.querySelectorAll('.sidelink').forEach((b,j) => b.classList.toggle('active', j===i));
+  document.querySelector('.root').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.addEventListener('click', e => {
+  const li = e.target.closest('#checklist li');
+  if (li) li.classList.toggle('done');
+});
+</script>
