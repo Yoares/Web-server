@@ -136,15 +136,17 @@ void Connection::handleRequest()
 	}
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
-			// Check server-level client_max_body_size
-		if (_request.isChunked() == false && _request.getContentLength() > _matched_server->client_max_body_size)
+		size_t current_limit = _matched_server->client_max_body_size;
+		if (matched_location != NULL) {
+			current_limit = matched_location->client_max_body_size;
+		}
+		if (_request.isChunked() == false && _request.getContentLength() > current_limit)
 		{
 			_response.buildErrorResponse(413, _matched_server->error_pages);
 			_header_buffer = _response.getHeadersAsString();
 			_is_response_ready = true;
-			return; // STOP EXECUTION! Do not parse body.
+			return;
 		}
-		// Resume parsing the body (opens file and writes leftover buffer)
 		_request.startBodyParsing();
 	}
 	if (_request.getState() == COMPLETE) 

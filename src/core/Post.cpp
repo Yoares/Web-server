@@ -82,15 +82,17 @@ PostHandler::PostHandler(HttpRequest& request, HttpResponse& response, const Ser
 
 bool PostHandler::validateBodySize(const std::string& temp_file) {
     struct stat st;
+    
     if (stat(temp_file.c_str(), &st) == -1) {
         _response.buildErrorResponse(500, _server.error_pages);
         return false;       
     }
 
-    if (static_cast<size_t>(st.st_size) > _server.client_max_body_size) {
+    if (static_cast<size_t>(st.st_size) > _location.client_max_body_size) {
         _response.buildErrorResponse(413, _server.error_pages); // 413 Payload Too Large
         return false; 
     }
+    
     return true;
 }
 

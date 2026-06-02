@@ -18,7 +18,7 @@ private:
 
     // --- Block Parsers ---
     Server parse_server();
-    Location parse_location();
+    Location parse_location(size_t inherited_max_body_size);
 
 public:
     // Constructor takes the tokens from the Tokenizer

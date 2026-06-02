@@ -6,9 +6,11 @@
 #include <iostream>
 
 struct Location {
+    Location();
     std::string path; //Routing: path and root cover translating URIs to physical directories.
     std::string root;
     std::string index;
+    size_t client_max_body_size;
     
     std::vector<std::string> allowed_methods; //Security: allowed_methods restricts bad requests (e.g., stopping a POST on a read-only directory).
     

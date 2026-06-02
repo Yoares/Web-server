@@ -19,6 +19,7 @@ private:
 public:
     // The main entry point
     static void validate(const std::vector<Server>& servers);
+    Location parse_location(size_t inherited_max_body_size);
 };
 
 #endif
