@@ -368,6 +368,10 @@ void HttpRequest::parse()
 	}
 	if (state == READING_HEADERS)
 		parseHeaders();
+	if (state == HEADERS_COMPLETE && method == POST && content_length == 0 && !_is_chunked)
+	{
+		state = COMPLETE; // No body to read, we're done!
+	}
 	if (state == ERROR)
 	{
 		std::cerr << "Error parsing request. Current buffer content:" << std::endl;

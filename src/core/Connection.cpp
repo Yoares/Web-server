@@ -34,9 +34,13 @@ void Connection::sendResponse()
     if (_headers_sent < _header_buffer.length()) 
     {
         size_t bytes_left = _header_buffer.length() - _headers_sent;
-        ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, MSG_NOSIGNAL);
+        ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, MSG_NOSIGNAL | MSG_DONTWAIT);
         
         if (sent == -1) throw std::runtime_error("Error sending headers.");
+		else if (sent == EWOULDBLOCK || sent == EAGAIN) {
+			// Socket buffer is full, wait for the next EPOLLOUT event
+			return;
+		}
         
         _headers_sent += sent;
         updateActivity();
@@ -61,8 +65,12 @@ void Connection::sendResponse()
 
         // Send the chunk over the socket
         if (bytes_read > 0) {
-            ssize_t sent = send(_client_fd, chunk, bytes_read, MSG_NOSIGNAL);
+            ssize_t sent = send(_client_fd, chunk, bytes_read, MSG_NOSIGNAL | MSG_DONTWAIT);
             if (sent == -1) throw std::runtime_error("Error sending file chunk.");
+			else if (sent == EWOULDBLOCK || sent == EAGAIN) {
+				// Socket buffer is full, wait for the next EPOLLOUT event
+				return;
+			}
             _body_sent += sent;
             updateActivity();
         }
@@ -77,8 +85,12 @@ void Connection::sendResponse()
         // It's a small string body (like an error page HTML)
         const std::string& body = _response.getBody();
         size_t bytes_left = body.length() - _body_sent;
-        ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, MSG_NOSIGNAL);
+        ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, MSG_NOSIGNAL | MSG_DONTWAIT);
         if (sent == -1) throw std::runtime_error("Error sending response body.");
+		else if (sent == EWOULDBLOCK || sent == EAGAIN) {
+			// Socket buffer is full, wait for the next EPOLLOUT event
+			return;
+		}
         _body_sent += sent;
         updateActivity();
 
@@ -137,6 +149,26 @@ void Connection::handleRequest()
 	}
 	if (_request.getState() == COMPLETE) 
     {
+		std::string req_method_str;
+		if (_request.getMethod() == GET) req_method_str = "GET";
+		else if (_request.getMethod() == POST) req_method_str = "POST";
+		else if (_request.getMethod() == DELETE) req_method_str = "DELETE";
+		else req_method_str = "UNKNOWN";
+
+		bool is_allowed = false;
+		for (size_t i = 0; i < matched_location->allowed_methods.size(); ++i) {
+			if (matched_location->allowed_methods[i] == req_method_str) {
+				is_allowed = true;
+				break;
+			}
+		}
+
+		if (!is_allowed) {
+			_response.buildErrorResponse(405, _matched_server->error_pages);
+			_header_buffer = _response.getHeadersAsString();
+			_is_response_ready = true;
+			return; // Stop execution, the method is forbidden here!
+		}
         if (_request.getMethod() == GET) {
             handleGet(*matched_location);
         } else if (_request.getMethod() == POST) {

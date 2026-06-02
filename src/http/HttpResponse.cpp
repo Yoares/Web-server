@@ -18,6 +18,7 @@ void HttpResponse::setBody(const std::string& body) {
     _body = body;
     _is_file = false;
     setHeader("Content-Length", to_string(_body.length()));
+	setHeader("Connection", "close");
 }
 
 void HttpResponse::setFile(const std::string& path, size_t size) {
@@ -25,6 +26,7 @@ void HttpResponse::setFile(const std::string& path, size_t size) {
     _file_size = size;
     _is_file = true;
     setHeader("Content-Length", to_string(size));
+	setHeader("Connection", "close");
 }
 
 std::string HttpResponse::getReasonPhrase(int code) const {
