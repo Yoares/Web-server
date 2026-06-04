@@ -4,6 +4,7 @@
 #include "../http/HttpRequest.hpp"
 #include "../http/HttpResponse.hpp"
 #include "../config/Config.hpp"
+#include "cgi/CgiHandler.hpp"
 #include <vector>
 #include <fstream>
 #include <algorithm>

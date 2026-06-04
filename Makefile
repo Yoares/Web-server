@@ -21,7 +21,7 @@ CORE_SRCS   = core/Webserv.cpp core/Connection.cpp core/Get.cpp core/Post.cpp co
 CONF_SRCS   = config/ServerBlock.cpp config/LocationBlock.cpp \
               config/Tokenizer.cpp config/ConfigParser.cpp config/ConfigValidator.cpp
 HTTP_SRCS   = http/HttpRequest.cpp http/HttpResponse.cpp
-#CGI_SRCS    = cgi/CgiHandler.cpp
+CGI_SRCS    = cgi/CgiHandler.cpp
 UTIL_SRCS   = utils/MimeTypes.cpp 
 
 # Combine all sources

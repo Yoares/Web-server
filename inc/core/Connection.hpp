@@ -8,6 +8,7 @@
 #include <ctime>
 #include "../config/Config.hpp"
 #include "../http/HttpResponse.hpp"
+#include "cgi/CgiHandler.hpp"
 
 class Connection {
     private:
