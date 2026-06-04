@@ -110,18 +110,16 @@ void CgiHandler::execute() {
     close(stdout_pipe[0]);
 
     int status = 0;
-    waitpid(pid, &status, 0);
-    if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-        _response.buildErrorResponse(502, _server.error_pages);
-        return;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+            _response.buildErrorResponse(502, _server.error_pages);
+            return;
+        }
+
+        // Parsin' CGI output into response 
+        _parseCgiOutput(cgiOutput);
     }
 
-    //Parsin' CGI output into response 
-        _response.buildErrorResponse(502, _server.error_pages);
-        return;
-    }
-    _parseCgiOutput(cgiOutput);
-}
 
 std::vector<std::string> CgiHandler::_buildEnv() const {
     std::vector<std::string> env;
