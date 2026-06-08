@@ -24,10 +24,9 @@ public:
         const Server& server,
         const Location& location);
 
-    void execute();
+    void execute(std::string path);
 
 private:
-    std::string resolvePhysicalPath(const std::string& request_uri, const Location& loc);
     bool validateUploadDirectory(const std::string& path);
     bool validateBodySize(const std::string& temp_file);
     bool copyToDestination(const std::string& temp_file,const std::string& path);

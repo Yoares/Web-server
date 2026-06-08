@@ -98,7 +98,7 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
         return;
     }
     else { //this if the autoindex is off
-        _response.buildErrorResponse(403, _matched_server->error_pages);
+        _response.buildErrorResponse(404, _matched_server->error_pages);
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
         return;
@@ -145,27 +145,11 @@ void Connection::serveFile(const std::string& _path) {
     return;
 }
 
-void Connection::handleGet(const Location& loc) {
-
-    std::string _path = resolvePhysicalPath(_request.getPath(), loc);
+void Connection::handleGet(const Location& loc, std::string _path) {
 
     if (_path.empty() || _request.getPath().find("..") != std::string::npos)
     {
         _response.buildErrorResponse(400, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return;
-    }
-        std::string ext;
-    size_t dot = _path.find_last_of('.');
-    if (dot != std::string::npos)
-        ext = _path.substr(dot);
-
-    std::map<std::string, std::string>::const_iterator it = loc.cgi_pass.find(ext);
-    if (it != loc.cgi_pass.end()) {
-        std::string cgi_bin = it->second;
-        CgiHandler cgi(_request, _response, loc, *_matched_server, cgi_bin, _path);
-        cgi.execute();
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
         return;
