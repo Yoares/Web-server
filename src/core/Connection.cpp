@@ -99,7 +99,17 @@ void Connection::sendResponse()
         }
     }
 }
-
+int Connection::checkCGI(const std::string& path) {
+	// Check if the resolved path matches any CGI location
+	size_t ext_pos = path.find_last_of('.');
+	if (ext_pos == std::string::npos)
+		return 0; // No extension, so not a CGI script
+	std::string ext = path.substr(ext_pos);
+	std::map<std::string, std::string>::const_iterator it = matched_location->cgi_pass.find(ext);
+	if (it == matched_location->cgi_pass.end())
+		return 0; // Extension not configured for CGI
+	return 1; // Extension is configured for CGI
+}
 void Connection::handleRequest()
 {
 	char buff[1024];
@@ -175,6 +185,8 @@ void Connection::handleRequest()
 			return; // Stop execution, the method is forbidden here!
 		}
 		std::string path = resolvePhysicalPath(_request.getPath(), *matched_location);
+		if (checkCGI(path) == 1)
+			return;
         if (_request.getMethod() == GET) {
             handleGet(*matched_location, path);
         } else if (_request.getMethod() == POST) {
