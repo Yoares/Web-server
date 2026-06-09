@@ -98,6 +98,18 @@ void Connection::sendResponse()
         }
     }
 }
+void Connection::handleCgiTimeout()
+{
+    // Fetch the correct error pages for this server block
+    std::map<int, std::string> err_pages;
+    err_pages = _matched_server->error_pages;
+
+    // Build a 504 Gateway Timeout response
+    _response.buildErrorResponse(504, err_pages);
+    _header_buffer = _response.getHeadersAsString();
+    _is_response_ready = true;
+}
+
 #include <sstream>
 #include <cctype>
 

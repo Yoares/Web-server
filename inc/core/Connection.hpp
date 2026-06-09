@@ -53,6 +53,7 @@ class Connection {
         void updateActivity() { _last_activity = time(NULL); }
 		void readCgiOutput();
 		time_t getLastActivity() const { return _last_activity; }
+		void handleCgiTimeout();
 
 
 		

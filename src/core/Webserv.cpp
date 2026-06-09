@@ -118,13 +118,48 @@ std::vector<epoll_event> Webserv::waitforEvents()
 void Webserv::checkTimeouts()
 {
 	time_t current_time = time(NULL);
-	const int TIMEOUT_LIMIT = 60; // Set timeout limit (e.g., 60 seconds)
+	const int TIMEOUT_LIMIT = 60;        // Idle client timeout
+	const int CGI_TIMEOUT_LIMIT = 5;     // Maximum seconds a CGI script is allowed to run
 
 	std::map<int, Connection>::iterator it = connections.begin();
 	while (it != connections.end())
 	{
-		// Check if the connection has been idle for longer than TIMEOUT_LIMIT
-		if (current_time - it->second.getLastActivity() > TIMEOUT_LIMIT)
+		Connection &conn = it->second;
+
+		// ==========================================
+		// 1. CGI TIMEOUT CHECK
+		// ==========================================
+		if (conn._cgi.getState() == CGI_RUNNING)
+		{
+			// Your existing checkTimeout function kills the process if it exceeds the limit!
+			if (conn._cgi.checkTimeout(CGI_TIMEOUT_LIMIT)) 
+			{
+				std::cout << "[INFO] CGI Timeout triggered for client FD: " << it->first << std::endl;
+
+				// CRITICAL: Remove the dead CGI pipe from epoll so it doesn't infinite loop
+				epoll_ctl(epollFd, EPOLL_CTL_DEL, conn._cgi.getStdoutFd(), NULL);
+
+				// Prepare the 504 Gateway Timeout HTML response
+				conn.handleCgiTimeout();
+
+				// Modify the client's socket to EPOLLOUT so epoll knows to send the error
+				struct epoll_event ev;
+				std::memset(&ev, 0, sizeof(ev));
+				ev.events = EPOLLOUT;
+				ev.data.fd = it->first;
+				if (epoll_ctl(epollFd, EPOLL_CTL_MOD, it->first, &ev) == -1) {
+					std::cerr << "[ERROR] Failed to modify epoll to EPOLLOUT after CGI timeout" << std::endl;
+				}
+
+				it++;
+				continue; // Skip the regular timeout check for this loop iteration
+			}
+		}
+
+		// ==========================================
+		// 2. EXISTING CLIENT IDLE TIMEOUT CHECK
+		// ==========================================
+		if (current_time - conn.getLastActivity() > TIMEOUT_LIMIT)
 		{
 			std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
 
@@ -132,16 +167,17 @@ void Webserv::checkTimeouts()
 			epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
 			close(it->first);
 
-			// C++98 TRICK: Safely erase the current item and move iterator forward.
-			// If you do 'connections.erase(it)' then 'it++' later, your server will Segfault!
 			std::map<int, Connection>::iterator temp = it;
 			it++;
 			connections.erase(temp);
 		}
 		else
+		{
 			it++;
+		}
 	}
 }
+
 void Webserv::acceptConnections(std::vector<epoll_event> &events)
 {
 	for (size_t i = 0; i < events.size(); ++i)
