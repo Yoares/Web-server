@@ -39,7 +39,6 @@ void Connection::sendResponse()
         updateActivity();
         return; // Return and wait for the next EPOLLOUT event
     }
-	std::cout << "Headers fully sent. Moving on to body..." << "headers sent: " << _header_buffer << std::endl;
 	if (_request.getMethod() == HEAD) {
 		// For HEAD requests, we only send headers, so we can close the connection after headers are sent.
 		throw ConnectionClosed();
@@ -94,11 +93,115 @@ void Connection::sendResponse()
         updateActivity();
 
         if (_body_sent >= body.length()) {
-			std::cout << "Body fully sent. Closing connection." << "body is: " << body << std::endl;
+			std::cout << "Body fully sent. Closing connection." << std::endl;
             throw ConnectionClosed(); // Closes the socket safely
         }
     }
 }
+#include <sstream>
+#include <cctype>
+
+std::vector<std::string> Connection::buildCgiEnv(const std::string& physical_path) 
+{
+    std::vector<std::string> env;
+
+    // 1. Standard CGI Metadata
+    env.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    env.push_back("SERVER_PROTOCOL=HTTP/1.1");
+    env.push_back("SERVER_SOFTWARE=Webserv/1.0");
+
+    // 2. Request Method
+    std::string method_str;
+    if (_request.getMethod() == GET) method_str = "GET";
+    else if (_request.getMethod() == POST) method_str = "POST";
+    else if (_request.getMethod() == DELETE) method_str = "DELETE";
+    else if (_request.getMethod() == HEAD) method_str = "HEAD";
+    else method_str = "UNKNOWN";
+    
+    env.push_back("REQUEST_METHOD=" + method_str);
+
+    // 3. Path and Routing
+  env.push_back("SCRIPT_FILENAME=" + physical_path);
+    env.push_back("SCRIPT_NAME=" + _request.getPath());
+    
+    // The tester expects PATH_INFO to be the URI, and PATH_TRANSLATED to be the physical file!
+    env.push_back("PATH_INFO=" + _request.getPath());
+    env.push_back("PATH_TRANSLATED=" + physical_path);
+    
+    // The tester also strictly checks for this variable
+    env.push_back("REQUEST_URI=" + _request.getPath());
+    
+    env.push_back("QUERY_STRING=" + _request.getQueryString());
+
+    // 4. Server details (Fallbacks to defaults if server block is somehow empty)
+    if (_matched_server && !_matched_server->server_names.empty()) {
+        env.push_back("SERVER_NAME=" + _matched_server->server_names[0]);
+    } else {
+        env.push_back("SERVER_NAME=localhost");
+    }
+
+   struct sockaddr_in local_addr;
+    socklen_t addr_len = sizeof(local_addr);
+    
+    // getsockname looks at the _client_fd and fills local_addr with the server's IP and Port for this specific connection
+    if (getsockname(_client_fd, (struct sockaddr*)&local_addr, &addr_len) == 0) {
+        
+        // Convert the port from network byte order to host integer
+        int actual_port = ntohs(local_addr.sin_port); 
+        
+        std::ostringstream port_ss;
+        port_ss << actual_port;
+        env.push_back("SERVER_PORT=" + port_ss.str());
+        
+    } else {
+        // Failsafe fallback just in case getsockname fails
+        env.push_back("SERVER_PORT=8080"); 
+    }
+
+    // 5. Client HTTP Headers
+    // The RFC requires we convert headers like "User-Agent: Mozilla" to "HTTP_USER_AGENT=Mozilla"
+    std::map<std::string, std::string> headers = _request.getHeaders();
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) 
+    {
+        std::string key = it->first;
+        
+        // Capitalize and replace hyphens with underscores
+        for (size_t i = 0; i < key.size(); ++i) {
+            key[i] = (key[i] == '-') ? '_' : std::toupper(key[i]);
+        }
+        
+        // Content-Type and Content-Length do NOT get the HTTP_ prefix
+        if (key == "CONTENT_TYPE") {
+            env.push_back("CONTENT_TYPE=" + it->second);
+        } else if (key == "CONTENT_LENGTH") {
+            env.push_back("CONTENT_LENGTH=" + it->second);
+        } else {
+            env.push_back("HTTP_" + key + "=" + it->second);
+        }
+    }
+
+    // 6. Failsafe for Content-Length
+    // If it wasn't in the headers but the request object has a size (e.g., chunked encoding)
+    if (headers.find("content-length") == headers.end() && _request.getContentLength() > 0) 
+    {
+        std::ostringstream len_ss;
+        len_ss << _request.getContentLength();
+        env.push_back("CONTENT_LENGTH=" + len_ss.str());
+    }
+
+    // 7. Custom Webserver Variables (Very helpful for PHP file uploads)
+    if (matched_location) {
+        if (!matched_location->upload_dir.empty()) {
+            env.push_back("UPLOAD_DIR=" + matched_location->upload_dir);
+        }
+        if (!matched_location->root.empty()) {
+            env.push_back("DOCUMENT_ROOT=" + matched_location->root);
+        }
+    }
+
+    return env;
+}
+
 int Connection::checkCGI(const std::string& path) {
 	// Check if the resolved path matches any CGI location
 	size_t ext_pos = path.find_last_of('.');
@@ -108,9 +211,83 @@ int Connection::checkCGI(const std::string& path) {
 	std::map<std::string, std::string>::const_iterator it = matched_location->cgi_pass.find(ext);
 	if (it == matched_location->cgi_pass.end())
 		return 0; // Extension not configured for CGI
+	_cgi = CgiHandler(path, it->second, _request.getMethod(), _request.getTempFilename());
+	std::vector<std::string> envp_vec = buildCgiEnv(path);
+	if (!_cgi.execute(envp_vec)) {
+		_response.buildErrorResponse(500, _matched_server->error_pages);
+		_header_buffer = _response.getHeadersAsString();
+		_is_response_ready = true;
+		return 0; // Failed to execute CGI, but we handled it gracefully with an error response
+	}
 	return 1; // Extension is configured for CGI
 }
-void Connection::handleRequest()
+
+#include <cstdlib> // For std::atoi
+
+void Connection::readCgiOutput()
+{
+	
+    if (!_cgi.readOutputNonBlocking())
+	{
+        
+        std::string raw = _cgi.getOutput();
+        size_t header_end = raw.find("\r\n\r\n");
+        size_t sep_len = 4;
+        
+        // Fallback for single line breaks
+        if (header_end == std::string::npos) {
+            header_end = raw.find("\n\n");
+            sep_len = 2;
+        }
+
+        if (header_end != std::string::npos) 
+        {
+            std::string headers_part = raw.substr(0, header_end);
+            std::string body_part = raw.substr(header_end + sep_len);
+
+            // Parse the headers from the CGI script
+            size_t pos = 0;
+            while (pos < headers_part.length()) {
+                size_t eol = headers_part.find('\n', pos);
+                if (eol == std::string::npos) eol = headers_part.length();
+                
+                std::string line = headers_part.substr(pos, eol - pos);
+                if (!line.empty() && line[line.length() - 1] == '\r') {
+                    line.erase(line.length() - 1);
+                }
+                pos = eol + 1;
+
+                size_t colon = line.find(':');
+                if (colon != std::string::npos) {
+                    std::string key = line.substr(0, colon);
+                    std::string val = line.substr(colon + 1);
+                    
+                    // Trim leading spaces
+                    size_t start = val.find_first_not_of(" \t");
+                    if (start != std::string::npos) val = val.substr(start);
+
+                    if (key == "Status") {
+                        _response.setStatusCode(std::atoi(val.c_str()));
+                    } else {
+                        _response.setHeader(key, val);
+                    }
+                }
+            }
+            _response.setBody(body_part);
+        } 
+        else 
+        {
+            // No headers found, treat entire string as body
+            _response.setBody(raw);
+        }
+
+		_header_buffer = _response.getHeadersAsString();
+		_is_response_ready = true;
+	}
+	updateActivity();
+}
+
+int Connection::handleRequest()
 {
 	char buff[1024];
 	ssize_t bread;
@@ -142,7 +319,7 @@ void Connection::handleRequest()
 		_header_buffer = _response.getHeadersAsString();
 		_is_response_ready = true;
 		
-		return; // STOP EXECUTION! Do not parse headers or bodies.
+		return 0; // STOP EXECUTION! Do not parse headers or bodies.
 	}
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
@@ -155,7 +332,7 @@ void Connection::handleRequest()
 			_response.buildErrorResponse(413, _matched_server->error_pages);
 			_header_buffer = _response.getHeadersAsString();
 			_is_response_ready = true;
-			return;
+			return 0;
 		}
 		_request.startBodyParsing();
 	}
@@ -182,11 +359,11 @@ void Connection::handleRequest()
 			_response.buildErrorResponse(405, _matched_server->error_pages);
 			_header_buffer = _response.getHeadersAsString();
 			_is_response_ready = true;
-			return; // Stop execution, the method is forbidden here!
+			return 0; // Stop execution, the method is forbidden here!
 		}
 		std::string path = resolvePhysicalPath(_request.getPath(), *matched_location);
 		if (checkCGI(path) == 1)
-			return;
+			return 1;
         if (_request.getMethod() == GET) {
             handleGet(*matched_location, path);
         } else if (_request.getMethod() == POST) {
@@ -195,6 +372,7 @@ void Connection::handleRequest()
             handleDelete(path);
         }
     }
+	return 0;
 }
 
 const Server *Connection::findCorrectServer(const std::string &host)

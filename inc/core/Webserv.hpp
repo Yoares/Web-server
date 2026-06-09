@@ -14,6 +14,8 @@
 #include <netdb.h>
 #include "../utils/Helpers.hpp"
 #include <exception>
+#include <unistd.h>
+       #include <fcntl.h>
 
 class Webserv
 {
@@ -26,7 +28,7 @@ class Webserv
 
 		std::vector<epoll_event> waitforEvents();
 		void handleConnections(const std::vector<epoll_event> &events);
-		void acceptConnections(const std::vector<epoll_event> &events);
+		void acceptConnections(std::vector<epoll_event> &events);
 		void checkTimeouts();
 
 		class NoEvents : public std::exception

@@ -142,7 +142,7 @@ void Webserv::checkTimeouts()
 			it++;
 	}
 }
-void Webserv::acceptConnections(const std::vector<epoll_event> &events)
+void Webserv::acceptConnections(std::vector<epoll_event> &events)
 {
 	for (size_t i = 0; i < events.size(); ++i)
 	{
@@ -166,6 +166,7 @@ void Webserv::acceptConnections(const std::vector<epoll_event> &events)
 				continue;
 			}
 			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd])));
+			fcntl(client_fd, F_SETFL, O_NONBLOCK);
 			std::cout << "[INFO] Accepted new connection (FD: " << client_fd << ")" << std::endl;
 		}
 	}
@@ -184,8 +185,19 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 
 				if (events[i].events & EPOLLIN)
 				{
-					conn.handleRequest();
-
+					if (conn.handleRequest() == 1)
+					{
+						struct epoll_event ev;
+						std::memset(&ev, 0, sizeof(ev));
+						ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;;
+						ev.data.fd = conn._cgi.getStdoutFd();
+						if (epoll_ctl(epollFd, EPOLL_CTL_ADD, conn._cgi.getStdoutFd(), &ev) == -1)
+						{
+							std::cerr << "[DEBUG] epoll_ctl failed for FD: " << conn._cgi.getStdoutFd() 
+              << " Error: " << std::strerror(errno) << std::endl;
+							throw std::runtime_error("Error modifying epoll for CGI handling");
+						}
+					}
 					if (conn.isResponseReady())
 					{
 						struct epoll_event ev;
@@ -217,6 +229,45 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 				epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
 				close(events[i].data.fd);
 				connections.erase(it);
+			}
+		}
+		else
+		{
+			std::map<int, Connection>::iterator cgi_it = connections.begin();
+			bool found = false;
+			while (cgi_it != connections.end())
+			{
+				if (cgi_it->second._cgi.getStdoutFd() == events[i].data.fd)
+				{
+					found = true;
+					break;
+				}
+				cgi_it++;
+			}
+			if (found)
+			{
+				Connection &conn = cgi_it->second;
+				if (events[i].events & (EPOLLIN | EPOLLHUP | EPOLLERR))
+				{
+					conn.readCgiOutput();
+					if (conn.isResponseReady())
+					{
+						// --- THE MISSING FIX: STOP WATCHING THE DEAD PIPE ---
+						if (epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL) == -1) {
+							std::cerr << "[ERROR] Failed to remove CGI FD from epoll." << std::endl;
+						}
+						
+						// Now modify the client socket so we can send the HTML back
+						struct epoll_event ev;
+						std::memset(&ev, 0, sizeof(ev));
+						ev.events = EPOLLOUT;
+						ev.data.fd = cgi_it->first;
+						if (epoll_ctl(epollFd, EPOLL_CTL_MOD, cgi_it->first, &ev) == -1)
+						{
+							throw std::runtime_error("Error modifying epoll to EPOLLOUT after CGI completion");
+						}
+					}
+				}
 			}
 		}
 	}
