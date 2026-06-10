@@ -14,6 +14,12 @@ CgiHandler::CgiHandler(const std::string& script_path, const std::string& cgi_bi
 {
     _stdout_pipe[0] = -1;
     _stdout_pipe[1] = -1;
+    
+    // --- ADD THESE INITIALIZATIONS ---
+    cgi_output_fd = -1; 
+    _output_state = OUTPUT_READING_HEADERS; // Ensure it starts looking for headers
+    body_size = 0;
+    _output_file = "";
 }
 
 // RAII Destructor: Ensures no file descriptors leak and no zombies are left behind
@@ -128,7 +134,7 @@ bool CgiHandler::readOutputNonBlocking() {
 			if (header_end != std::string::npos) {
 				_output_state = OUTPUT_READING_BODY;
 				std::stringstream ss;
-				ss << "/tmp/webserv_cgi_output_" << time(NULL) << "_" << rand();
+				ss << "/tmp/webserv_cgi_output_" << time(NULL) << "_" << _pid;
 				_output_file = ss.str();
 				cgi_output_fd = open(_output_file.c_str(), O_CREAT | O_WRONLY | O_TRUNC , 0644);
 				if (cgi_output_fd == -1) {
