@@ -119,7 +119,7 @@ void Webserv::checkTimeouts()
 {
 	time_t current_time = time(NULL);
 	const int TIMEOUT_LIMIT = 60;        // Idle client timeout
-	const int CGI_TIMEOUT_LIMIT = 5;     // Maximum seconds a CGI script is allowed to run
+	const int CGI_TIMEOUT_LIMIT = 500;     // Maximum seconds a CGI script is allowed to run
 
 	std::map<int, Connection>::iterator it = connections.begin();
 	while (it != connections.end())

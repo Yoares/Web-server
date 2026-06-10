@@ -20,6 +20,7 @@ CgiHandler::CgiHandler(const std::string& script_path, const std::string& cgi_bi
 CgiHandler::~CgiHandler() {
     if (_stdout_pipe[0] != -1) close(_stdout_pipe[0]);
     if (_stdout_pipe[1] != -1) close(_stdout_pipe[1]);
+	if (cgi_output_fd != -1) close(cgi_output_fd);
     
     if (_pid > 0 && _state == CGI_RUNNING) {
         killProcess(); // Terminate rogue child process
@@ -58,19 +59,19 @@ bool CgiHandler::execute(const std::vector<std::string>& envp_vec) {
         // --- CHILD PROCESS ---
         
         // 1. Handle STDIN via the temporary file
-		std::cout << "[CGI] Child process started. Setting up execution context..." << std::endl;
-		std::cout << "[CGI] tmp_post_file: " << _tmp_post_file << std::endl;
+		//std::cout << "[CGI] Child process started. Setting up execution context..." << std::endl;
+		//std::cout << "[CGI] tmp_post_file: " << _tmp_post_file << std::endl;
         if (_method == POST) {
             int file_fd = open(_tmp_post_file.c_str(), O_RDONLY);
             if (file_fd != -1) {
-				std::cout << "[CGI] Redirecting STDIN from file: " << _tmp_post_file << std::endl;
+				//std::cout << "[CGI] Redirecting STDIN from file: " << _tmp_post_file << std::endl;
                 dup2(file_fd, STDIN_FILENO);
                 close(file_fd);
             }
         }
 		else
 		{
-			std::cout << "[CGI] No POST data. Redirecting STDIN to /dev/null" << std::endl;
+			//std::cout << "[CGI] No POST data. Redirecting STDIN to /dev/null" << std::endl;
 			int dev_null = open("/dev/null", O_RDONLY);
 			if (dev_null != -1) {
 				dup2(dev_null, STDIN_FILENO);
@@ -107,6 +108,10 @@ bool CgiHandler::execute(const std::vector<std::string>& envp_vec) {
     _state = CGI_RUNNING;
     return true;
 }
+std::string CgiHandler::getOutFile() const {
+	std::cout << "[CGI] getOutFile called. Output file: " << _output_file << std::endl;
+	return _output_file;
+}
 
 // Called by epoll when EPOLLIN is triggered on _stdout_pipe[0]
 bool CgiHandler::readOutputNonBlocking() {
@@ -115,8 +120,40 @@ bool CgiHandler::readOutputNonBlocking() {
     char buffer[4096];
     ssize_t bytes_read = read(_stdout_pipe[0], buffer, sizeof(buffer));
 
-    if (bytes_read > 0) {
-        _output_buffer.append(buffer, bytes_read);
+    if (bytes_read > 0)
+	{
+		if (_output_state == OUTPUT_READING_HEADERS) {
+			_output_buffer.append(buffer, bytes_read);
+			size_t header_end = _output_buffer.find("\r\n\r\n");
+			if (header_end != std::string::npos) {
+				_output_state = OUTPUT_READING_BODY;
+				std::stringstream ss;
+				ss << "/tmp/webserv_cgi_output_" << time(NULL) << "_" << rand();
+				_output_file = ss.str();
+				cgi_output_fd = open(_output_file.c_str(), O_CREAT | O_WRONLY | O_TRUNC , 0644);
+				if (cgi_output_fd == -1) {
+					std::cerr << "[CGI] Failed to open output file: " << _output_file << std::endl;
+					return false;
+				}
+				std::string headers_part = _output_buffer.substr(0, header_end);
+				std::string body_part = _output_buffer.substr(header_end + 4);
+				int written = write(cgi_output_fd, body_part.c_str(), body_part.size());
+				if (written > 0)
+					body_size += written;
+				_output_buffer = headers_part; // Keep only headers in the buffer for getOutput()
+			}
+			if (_output_buffer.size() > 8192) {
+				std::cerr << "[CGI] Headers too large or malformed. Aborting." << std::endl;
+				_state = CGI_ERROR;
+				return false;
+			}
+		}
+		else if (_output_state == OUTPUT_READING_BODY)
+		{
+			int written = write(cgi_output_fd, buffer, bytes_read);
+			if (written > 0)
+				body_size += written;
+		}
         return true; // Still reading
     } 
     else if (bytes_read == 0) {
@@ -130,6 +167,8 @@ bool CgiHandler::readOutputNonBlocking() {
                 _exit_status = WEXITSTATUS(status);
             }
         }
+		close(cgi_output_fd);
+		cgi_output_fd = -1;
         return false; // Done reading
     } 
     else {
@@ -142,7 +181,7 @@ bool CgiHandler::readOutputNonBlocking() {
 bool CgiHandler::checkTimeout(int timeout_seconds) {
     if (_state == CGI_RUNNING) {
         if (std::time(NULL) - _start_time > timeout_seconds) {
-            std::cerr << "[CGI] Timeout reached. Killing PID: " << _pid << std::endl;
+            //std::cerr << "[CGI] Timeout reached. Killing PID: " << _pid << std::endl;
             killProcess();
             _state = CGI_ERROR;
             return true; // Timeout triggered

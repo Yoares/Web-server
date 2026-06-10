@@ -75,7 +75,8 @@ void Connection::sendResponse()
         // Check if we are totally finished
         if (_body_sent >= _response.getFileSize()) {
 			std::cout << "File fully sent. Closing connection." << "file is: " << _response.getFilePath() << std::endl;
-            throw ConnectionClosed(); // Closes the socket safely
+			std::cout << "Headers were: " << _header_buffer << std::endl;
+			throw ConnectionClosed(); // Closes the socket safely
         }
     } 
     else 
@@ -94,6 +95,7 @@ void Connection::sendResponse()
 
         if (_body_sent >= body.length()) {
 			std::cout << "Body fully sent. Closing connection." << std::endl;
+			std::cout << "Response body was: " << _header_buffer << body << std::endl;
             throw ConnectionClosed(); // Closes the socket safely
         }
     }
@@ -235,66 +237,62 @@ int Connection::checkCGI(const std::string& path) {
 }
 
 #include <cstdlib> // For std::atoi
+void Connection::parseCgiHeaders(const std::string& headers_str) {
+	size_t pos = 0;
+    while (pos < headers_str.length()) {
+        // Find the end of the current line
+        size_t eol = headers_str.find('\n', pos);
+        if (eol == std::string::npos) eol = headers_str.length();
 
+        // Extract the line and remove the trailing '\r' if it exists
+        std::string line = headers_str.substr(pos, eol - pos);
+        if (!line.empty() && line[line.length() - 1] == '\r') {
+            line.erase(line.length() - 1);
+        }
+        pos = eol + 1; // Move past the '\n' for the next loop
+
+        // Split the line into Key and Value by finding the ':'
+        size_t colon = line.find(':');
+        if (colon != std::string::npos) {
+            std::string key = line.substr(0, colon);
+            std::string value = line.substr(colon + 1);
+
+            // Trim leading spaces from the value (e.g., " text/html" -> "text/html")
+            size_t start = value.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                value = value.substr(start);
+            } else {
+                value = ""; // Value was only spaces
+            }
+
+            // ==========================================
+            // STEP 4: Handle Special CGI Headers
+            // ==========================================
+            if (key == "Status") {
+                // The Status header looks like "200 OK" or "404 Not Found"
+                // std::atoi will stop reading at the space, so "200 OK" becomes the int 200
+                _response.setStatusCode(std::atoi(value.c_str()));
+            } else {
+                // For all other headers (Content-Type, Set-Cookie, etc.), pass them normally
+                _response.setHeader(key, value);
+            }
+        }
+    }
+}
 void Connection::readCgiOutput()
 {
 	
     if (!_cgi.readOutputNonBlocking())
 	{
-        
-        std::string raw = _cgi.getOutput();
-        size_t header_end = raw.find("\r\n\r\n");
-        size_t sep_len = 4;
-        
-        // Fallback for single line breaks
-        if (header_end == std::string::npos) {
-            header_end = raw.find("\n\n");
-            sep_len = 2;
-        }
-
-        if (header_end != std::string::npos) 
-        {
-            std::string headers_part = raw.substr(0, header_end);
-            std::string body_part = raw.substr(header_end + sep_len);
-
-            // Parse the headers from the CGI script
-            size_t pos = 0;
-            while (pos < headers_part.length()) {
-                size_t eol = headers_part.find('\n', pos);
-                if (eol == std::string::npos) eol = headers_part.length();
-                
-                std::string line = headers_part.substr(pos, eol - pos);
-                if (!line.empty() && line[line.length() - 1] == '\r') {
-                    line.erase(line.length() - 1);
-                }
-                pos = eol + 1;
-
-                size_t colon = line.find(':');
-                if (colon != std::string::npos) {
-                    std::string key = line.substr(0, colon);
-                    std::string val = line.substr(colon + 1);
-                    
-                    // Trim leading spaces
-                    size_t start = val.find_first_not_of(" \t");
-                    if (start != std::string::npos) val = val.substr(start);
-
-                    if (key == "Status") {
-                        _response.setStatusCode(std::atoi(val.c_str()));
-                    } else {
-                        _response.setHeader(key, val);
-                    }
-                }
-            }
-            _response.setBody(body_part);
-        } 
-        else 
-        {
-            // No headers found, treat entire string as body
-            _response.setBody(raw);
-        }
-
+		std::string out_file = _cgi.getOutFile();
+		if (out_file.empty())
+			_response.setBody("");
+		else
+			_response.setFile(out_file, _cgi.getBodySize());
+        parseCgiHeaders(_cgi.getOutput());
+		std::cout << "Body size from CGI is: " << _cgi.getBodySize() << std::endl;
 		_header_buffer = _response.getHeadersAsString();
-		_is_response_ready = true;
+		_is_response_ready = true;		
 	}
 	updateActivity();
 }

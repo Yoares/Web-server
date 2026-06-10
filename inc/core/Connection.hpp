@@ -33,7 +33,7 @@ class Connection {
         void serveFile(const std::string& file_path);
 		int checkCGI(const std::string& path);
 		std::vector<std::string> buildCgiEnv(const std::string& physical_path); // Helper to build CGI environment variables
-
+		void parseCgiHeaders(const std::string& headers_str);
 		// --- RESPONSE SENDING STATE ---
 
 		HttpResponse _response;

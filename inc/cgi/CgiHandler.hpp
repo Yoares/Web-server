@@ -14,6 +14,12 @@ enum CgiState {
     CGI_ERROR       // Failed to execute or timeout
 };
 
+enum CgiOutputState {
+	OUTPUT_READING_HEADERS,
+	OUTPUT_READING_BODY,
+	OUTPUT_DONE
+};
+
 class CgiHandler {
 public:
     // Constructor requires only the data needed to build the execution context
@@ -32,6 +38,10 @@ public:
 		_exit_status = 0;
 		_stdout_pipe[0] = -1;
 		_stdout_pipe[1] = -1;
+		cgi_output_fd = -1;
+		_output_file = "";
+		_output_state = OUTPUT_READING_HEADERS;
+		body_size = 0;
 	}
 	CgiHandler& operator=(const CgiHandler& other){
 		this->_pid = -1;
@@ -43,6 +53,10 @@ public:
 		this->_exit_status = other._exit_status;
 		this->_stdout_pipe[0] = -1;
 		this->_stdout_pipe[1] = -1;
+		this->cgi_output_fd = -1;
+		this->_output_file = other._output_file;
+		this->_output_state = other._output_state;
+		this->body_size = 0;
 		return *this;}
     ~CgiHandler();
 
@@ -57,7 +71,9 @@ public:
     int             getStdoutFd() const;
     CgiState        getState() const;
     int             getMethod() const;
-    
+	std::string	 	getOutFile() const;
+	size_t				getBodySize() const { return body_size; }
+
     // Result extraction
     std::string     getOutput() const;
     int             getExitStatus() const;
@@ -67,14 +83,18 @@ private:
     pid_t           _pid;           // The Child Process ID
     int             _method;        // GET (1), POST (2), etc.
     CgiState        _state;         // Current state in the state machine
+	CgiOutputState _output_state;   // State for parsing CGI output
     
     // File Descriptors
     int             _stdout_pipe[2]; // Parent reads from [0], Child writes to [1]
+	int 		   cgi_output_fd;
     
     // Execution Context
     std::string     _script_path;
     std::string     _cgi_bin;
     std::string     _tmp_post_file;  // The /tmp/webserv_XX file for POST stdin
+	std::string	 _output_file;  // Assembled output from the CGI
+	size_t			 body_size;
     
     // Data Accumulation
     std::string     _output_buffer;  // Assembled output from the CGI
