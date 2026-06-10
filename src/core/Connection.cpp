@@ -5,7 +5,7 @@ const char* Connection::ConnectionClosed::what() const throw() {
     return "Connection closed safely.";
 }
 
-void Connection::handlePost(const Location& loc) {
+void Connection::handlePost(const Location& loc, std::string _path) {
     // Failsafe check
     if (!_matched_server) {
         _response.buildErrorResponse(500, _possible_servers[0].error_pages);
@@ -13,35 +13,13 @@ void Connection::handlePost(const Location& loc) {
         _is_response_ready = true;
         return;
     }
-	std::string script_path = loc.root + _request.getPath(); // adjust to your actual path resolution logic
-    // Checking if the request targets a CGI script
-    std::string ext;
-    size_t dot = script_path.find_last_of('.');
-    if (dot != std::string::npos)
-        ext = script_path.substr(dot);
-
-    std::map<std::string, std::string>::const_iterator it = loc.cgi_pass.find(ext);
-    if (it != loc.cgi_pass.end()) {
-        std::string cgi_bin = it->second;
-        CgiHandler cgi(_request, _response, loc, *_matched_server, cgi_bin, script_path);
-        cgi.execute();
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return;
-    }
-    // Instantiate handler and execute logic
     PostHandler post_handler(_request, _response, *_matched_server, loc);
-    post_handler.execute();
+    post_handler.execute(_path);
 
     // Finalize response flags for the Connection object
     _header_buffer = _response.getHeadersAsString();
     _is_response_ready = true;
 }
-
-// void Connection::handleDelete(const Location& loc) {
-//   //
-//   (void)loc; // Avoid unused parameter warning
-// }
 
 void Connection::sendResponse()
 {
@@ -61,6 +39,7 @@ void Connection::sendResponse()
         updateActivity();
         return; // Return and wait for the next EPOLLOUT event
     }
+	std::cout << "Headers fully sent. Moving on to body..." << "headers sent: " << _header_buffer << std::endl;
 	if (_request.getMethod() == HEAD) {
 		// For HEAD requests, we only send headers, so we can close the connection after headers are sent.
 		throw ConnectionClosed();
@@ -96,6 +75,7 @@ void Connection::sendResponse()
 
         // Check if we are totally finished
         if (_body_sent >= _response.getFileSize()) {
+			std::cout << "File fully sent. Closing connection." << "file is: " << _response.getFilePath() << std::endl;
             throw ConnectionClosed(); // Closes the socket safely
         }
     } 
@@ -114,6 +94,7 @@ void Connection::sendResponse()
         updateActivity();
 
         if (_body_sent >= body.length()) {
+			std::cout << "Body fully sent. Closing connection." << "body is: " << body << std::endl;
             throw ConnectionClosed(); // Closes the socket safely
         }
     }
@@ -193,12 +174,13 @@ void Connection::handleRequest()
 			_is_response_ready = true;
 			return; // Stop execution, the method is forbidden here!
 		}
+		std::string path = resolvePhysicalPath(_request.getPath(), *matched_location);
         if (_request.getMethod() == GET) {
-            handleGet(*matched_location);
+            handleGet(*matched_location, path);
         } else if (_request.getMethod() == POST) {
-            handlePost(*matched_location);
+            handlePost(*matched_location, path);
         } else if (_request.getMethod() == DELETE) {
-            handleDelete(*matched_location);
+            handleDelete(path);
         }
     }
 }

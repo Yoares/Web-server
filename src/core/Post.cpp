@@ -35,39 +35,6 @@ void PostHandler::buildSuccessResponse(const std::vector<std::string>& finalName
     _response.setBody(json.str());
 }
 
-std::string PostHandler::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
-    std::string _path;
-    std::string root;
-
-    if (loc.root.empty())
-        root = "/var/www/html";
-    else
-        root = loc.root;
-
-    if (request_uri.find("..") != std::string::npos)
-        return "";
-
-    // --- ALIAS BEHAVIOR: Strip the location path from the URI ---
-    std::string clean_uri = request_uri;
-    if (!loc.path.empty() && request_uri.find(loc.path) == 0) {
-        clean_uri = request_uri.substr(loc.path.length());
-        if (clean_uri.empty() || clean_uri[0] != '/') {
-            clean_uri = "/" + clean_uri;
-        }
-    }
-
-    // Prevent double slashes when joining
-    if (root[root.length() - 1] == '/' && clean_uri[0] == '/') {
-        _path = root + clean_uri.substr(1);
-    } else if (root[root.length() - 1] != '/' && clean_uri[0] != '/') {
-        _path = root + "/" + clean_uri;
-    } else {
-        _path = root + clean_uri;
-    }
-
-    return _path;
-}
-
 static std::string getParentDirectory(
     const std::string& path)
 {
@@ -293,9 +260,8 @@ bool PostHandler::processMultipart(const std::string& temp_file, const std::stri
     return true;
 }
 
-void PostHandler::execute() {
-    std::string path = resolvePhysicalPath(_request.getPath(), _location);
-
+void PostHandler::execute(std::string path){
+	
     if (path.empty()) {
         _response.buildErrorResponse(400, _server.error_pages);
         return;

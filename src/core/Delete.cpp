@@ -7,8 +7,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 
-void Connection::handleDelete(const Location& loc) {
-    std::string path = resolvePhysicalPath(_request.getPath(), loc);
+void Connection::handleDelete(std::string path) {
 
     if (path.empty()|| _request.getPath().find("..") != std::string::npos)
     {

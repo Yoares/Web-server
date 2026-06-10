@@ -21,9 +21,9 @@ class Connection {
         const Location* matched_location;
 
         // --- THE HTTP METHOD ROUTING ---
-        void handleGet(const Location& loc);
-        void handlePost(const Location& loc);
-        void handleDelete(const Location& loc);
+        void handleGet(const Location& loc, std::string _path);
+        void handlePost(const Location& loc, std::string _path);
+        void handleDelete(std::string _path);
         std::string resolvePhysicalPath(const std::string& request_uri, const Location& loc);
         void handleDirectory(const std::string& path, const Location& loc);
         void serveFile(const std::string& file_path);
