@@ -1,95 +1,105 @@
 #!/bin/bash
 
 # ==========================================
-# 💀 CGI DOOMSDAY STRESS SCRIPT 💀
+# 42 WEBSERV CGI STRESS TESTER
 # ==========================================
 
-PORT=8080
-BASE_URL="http://localhost:$PORT"
-CGI_FAST="$BASE_URL/cgi-bin/fast.py"
-CGI_SLEEP="$BASE_URL/cgi-bin/sleep.py"
+# Adjust these variables to match your config
+HOST="127.0.0.1"
+PORT="8080"
+CGI_EXT="/directory/youpi.bla" # The path that triggers your ubuntu_cgi_tester
+URL="http://$HOST:$PORT$CGI_EXT"
 
-RED='\033[0;31m'
+# Colors for output
 GREEN='\033[0;32m'
+RED='\033[0;31m'
 YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${RED}================================================${NC}"
-echo -e "${RED}🔥 INITIATING CGI STRESS PROTOCOL 🔥${NC}"
-echo -e "${RED}================================================${NC}"
+echo -e "${YELLOW}Starting 42 Webserv CGI Stress Test...${NC}\n"
 
-# ---------------------------------------------------------
-# PHASE 1: THE FORK BOMB (150 Concurrent Execves)
-# ---------------------------------------------------------
-echo -e "\n${CYAN}[PHASE 1] The Fork Bomb (150 Concurrent CGIs)...${NC}"
-echo "Testing if your server leaks zombies or crashes from rapid fork() calls."
+# Helper function to check server pulse
+check_server_alive() {
+    if ! curl -s -m 2 $URL > /dev/null; then
+        echo -e "${RED}[FATAL] Server crashed or is unresponsive!${NC}"
+        exit 1
+    fi
+}
 
-SUCCESS=0
-for i in $(seq 1 150); do
-    curl -s -o /dev/null -w "%{http_code}" -X GET "$CGI_FAST" &
+# ==========================================
+# TEST 1: The "Non-Blocking" GET Test (50 Concurrent)
+# ==========================================
+echo -e "${GREEN}[TEST 1] Testing Non-Blocking Architecture (50 Concurrent GETs)...${NC}"
+echo "If your server freezes here, your waitpid() or epoll setup is blocking."
+
+for i in {1..50}; do
+    curl -s -o /dev/null -w "%{http_code}" -X GET $URL &
 done
+
 wait
+echo -e "\n${GREEN}Completed Test 1.${NC}\n"
+check_server_alive
 
-echo -e "${YELLOW}Check your terminal running webserv.${NC}"
-echo -e "Run: ${GREEN}ps aux | grep Z${NC} in another terminal."
-echo "If you have 'defunct' processes, you are leaking zombies!"
+# ==========================================
+# TEST 2: The "Memory Exhaustion" POST Test (100MB x 10 Concurrent)
+# ==========================================
+echo -e "${GREEN}[TEST 2] Testing Large Body Spooling (10 x 100MB Concurrent POSTs)...${NC}"
+echo "Generating 100MB payload (this might take a second)..."
+head -c 100000000 </dev/zero > /tmp/100mb_test.bin
 
-# ---------------------------------------------------------
-# PHASE 2: THE PIPE STUFFER (Concurrent Large POST to CGI)
-# ---------------------------------------------------------
-echo -e "\n${CYAN}[PHASE 2] The Pipe Stuffer (50 Concurrent 1MB POSTs)...${NC}"
-echo "Testing if writing to CGI pipes blocks your main epoll loop."
-
-dd if=/dev/urandom of=/tmp/cgi_payload.bin bs=1M count=1 status=none
-for i in $(seq 1 50); do
-    curl -s -o /dev/null -X POST --data-binary "@/tmp/cgi_payload.bin" "$CGI_FAST" &
+echo "Firing requests... (If your server crashes, it's hoarding RAM or deadlocking pipes)"
+for i in {1..10}; do
+    curl -s -o /dev/null -w "%{http_code}" -X POST --data-binary @/tmp/100mb_test.bin $URL &
 done
+
 wait
+rm -f /tmp/100mb_test.bin
+echo -e "\n${GREEN}Completed Test 2.${NC}\n"
+check_server_alive
 
-echo -e "${GREEN}✅ Phase 2 complete. If your server didn't freeze or return 500s, your pipes are non-blocking.${NC}"
-rm -f /tmp/cgi_payload.bin
+# ==========================================
+# TEST 3: The "Query String & Variables" Test
+# ==========================================
+echo -e "${GREEN}[TEST 3] Testing Query String and Environment Variables...${NC}"
+echo "Sending GET request with complex query string..."
 
-# ---------------------------------------------------------
-# PHASE 3: THE TIME LORD (Hanging CGI Timeout)
-# ---------------------------------------------------------
-echo -e "\n${CYAN}[PHASE 3] The Time Lord (Timeout Enforcement)...${NC}"
-echo "Triggering a CGI script that sleeps for 10 seconds."
-echo "Your server should kill it and return 504 Gateway Timeout after your configured limit (e.g., 5 seconds)."
-
-START_TIME=$(date +%s)
-# Send request to the sleeping CGI
-STATUS=$(curl -m 12 -s -o /dev/null -w "%{http_code}" "$CGI_SLEEP")
-END_TIME=$(date +%s)
-DURATION=$((END_TIME - START_TIME))
-
-if [ "$STATUS" == "504" ] || [ "$STATUS" == "500" ]; then
-    echo -e "${GREEN}✅ SURVIVED: Server caught the hanging CGI and returned $STATUS in $DURATION seconds.${NC}"
-elif [ "$STATUS" == "200" ]; then
-    echo -e "${RED}❌ FAILED: Server waited the full 10 seconds. You are not enforcing CGI timeouts!${NC}"
+RES=$(curl -s -X GET "$URL?name=42student&project=webserv&score=125")
+if echo "$RES" | grep -q "42student"; then
+    echo -e "${GREEN}Pass: CGI successfully read the query string.${NC}"
 else
-    echo -e "${YELLOW}⚠️ Server returned $STATUS. Did the connection drop?${NC}"
+    echo -e "${RED}Fail: CGI did not return the expected query string data.${NC}"
 fi
+echo -e "\n"
 
-# ---------------------------------------------------------
-# PHASE 4: THE MULTITASKER (CGI + Static Interleaving)
-# ---------------------------------------------------------
-echo -e "\n${CYAN}[PHASE 4] The Multitasker...${NC}"
-echo "Starting 10 slow CGIs in the background..."
-for i in $(seq 1 10); do
-    curl -s -o /dev/null "$CGI_SLEEP" &
-done
+# ==========================================
+# TEST 4: The "Chunked Transfer" Trick Test
+# ==========================================
+echo -e "${GREEN}[TEST 4] Testing Chunked Transfer Encoding on CGI POST...${NC}"
+echo "Sending chunked POST request without Content-Length..."
 
-echo "Attempting to fetch a normal webpage while CGIs are blocking..."
-STATUS=$(curl --max-time 2 -s -o /dev/null -w "%{http_code}" "$BASE_URL/")
-
-if [ "$STATUS" == "200" ]; then
-    echo -e "${GREEN}✅ SURVIVED: Server served static files while CGIs were processing!${NC}"
+RES=$(curl -s -X POST -H "Transfer-Encoding: chunked" -d "This is chunk 1" -d "This is chunk 2" $URL)
+if echo "$RES" | grep -q "chunk"; then
+    echo -e "${GREEN}Pass: CGI successfully received unchunked data.${NC}"
 else
-    echo -e "${RED}❌ FAILED: Server froze! Your waitpid() or pipe reading is blocking the epoll loop.${NC}"
+    echo -e "${YELLOW}Warning: Your server might not have passed the unchunked body to the CGI.${NC}"
 fi
+echo -e "\n"
+
+# ==========================================
+# TEST 5: The "Rapid Fire Connection Drop" (Orphan Zombies)
+# ==========================================
+echo -e "${GREEN}[TEST 5] Testing Zombie Process Cleanup (Rapid Fire & Drop)...${NC}"
+echo "Spawning CGI processes and instantly closing the client connection..."
+
+for i in {1..20}; do
+    # -m 0.1 forces curl to timeout and drop the connection after 100ms, 
+    # well before the CGI finishes executing!
+    curl -s -m 0.1 -X GET $URL > /dev/null 2>&1 &
+done
 wait
 
-echo -e "\n${RED}================================================${NC}"
-echo -e "${GREEN}CGI STRESS PROTOCOL COMPLETE.${NC}"
-echo -e "${RED}================================================${NC}"
+echo -e "Check your server terminal. Did it crash? Type 'ps aux | grep ubuntu_cgi' to check for zombies."
+echo -e "${GREEN}Completed Test 5.${NC}\n"
+check_server_alive
+
+echo -e "${YELLOW}All automated stress tests completed!${NC}"
