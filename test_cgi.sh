@@ -78,7 +78,7 @@ echo -e "${GREEN}[TEST 4] Testing Chunked Transfer Encoding on CGI POST...${NC}"
 echo "Sending chunked POST request without Content-Length..."
 
 RES=$(curl -s -X POST -H "Transfer-Encoding: chunked" -d "This is chunk 1" -d "This is chunk 2" $URL)
-if echo "$RES" | grep -q "chunk"; then
+if echo "$RES" | grep -q "CHUNK"; then
     echo -e "${GREEN}Pass: CGI successfully received unchunked data.${NC}"
 else
     echo -e "${YELLOW}Warning: Your server might not have passed the unchunked body to the CGI.${NC}"
