@@ -55,6 +55,8 @@ class HttpRequest
 		int getErrorCode() const { return _error_code; }
 		bool isChunked() const { return _is_chunked; }
 
+		std::string getCookie(const std::string& name) const;
+
 	private:
 		std::string buffer;
 		State state;
@@ -90,5 +92,8 @@ class HttpRequest
 		bool _is_last_chunk;      // True when we read a 0 size
 		
 		void parseChunkedBody();
+
+		std::map<std::string, std::string> _cookies;
+		void parseCookies(const std::string& cookie_header);
 };
 #endif

@@ -242,6 +242,10 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 			content_length = std::atol(header_value.c_str());
 			found_content_length = true;
 		}
+		else if (header_name == "cookie")
+        {
+            parseCookies(header_value.c_str());
+        }
 		// --- ADD THIS BLOCK ---
 		else if (header_name == "transfer-encoding" && header_value == "chunked")
 		{
@@ -491,3 +495,15 @@ void HttpRequest::ShowBuff()
 {
 	std::cout << buffer;
 }
+
+// void HttpRequest::parseCookies(const std::string& cookie_header){
+// 	size_t pos = 0;
+
+// 	while (pos < cookie_header.length()){
+// 		size_t eq_pos = cookie_header.find('=', pos);
+//         size_t semi_pos = cookie_header.find(';', pos);
+// 		if (semi_pos == std::string::npos){
+// 			semi_pos = cookie_header.length();
+// 		}
+// 	}
+// }
