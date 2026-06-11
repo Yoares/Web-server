@@ -193,7 +193,7 @@ void Webserv::acceptConnections(std::vector<epoll_event> &events)
 			}
 			struct epoll_event ev;
 			std::memset(&ev, 0, sizeof(ev));
-			ev.events = EPOLLIN;
+			ev.events = EPOLLIN | EPOLLRDHUP;
 			ev.data.fd = client_fd;
 
 			if (epoll_ctl(epollFd, EPOLL_CTL_ADD, client_fd, &ev) == -1)
@@ -228,11 +228,7 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 						ev.events = EPOLLIN | EPOLLHUP | EPOLLERR;;
 						ev.data.fd = conn._cgi.getStdoutFd();
 						if (epoll_ctl(epollFd, EPOLL_CTL_ADD, conn._cgi.getStdoutFd(), &ev) == -1)
-						{
-							std::cerr << "[DEBUG] epoll_ctl failed for FD: " << conn._cgi.getStdoutFd() 
-              << " Error: " << std::strerror(errno) << std::endl;
 							throw std::runtime_error("Error modifying epoll for CGI handling");
-						}
 					}
 					if (conn.isResponseReady())
 					{
@@ -249,6 +245,20 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 				if (events[i].events & EPOLLOUT)
 				{
 					conn.sendResponse();
+				}
+				if (events[i].events & EPOLLRDHUP)
+				{
+					std::cout << "[INFO] Client disconnected (FD: " << events[i].data.fd << ")" << std::endl;
+					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+					close(events[i].data.fd);
+					connections.erase(it);
+				}
+				if (events[i].events & (EPOLLHUP | EPOLLERR))
+				{
+					std::cout << "[INFO] Client connection broke unexpectedly (FD: " << events[i].data.fd << ")" << std::endl;
+					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+					close(events[i].data.fd);
+					connections.erase(it);
 				}
 			}
 			catch (const Connection::ConnectionClosed &e)

@@ -23,83 +23,51 @@ void Connection::handlePost(const Location& loc, std::string _path) {
 
 void Connection::sendResponse()
 {
-    // PHASE 1: Send Headers
     if (_headers_sent < _header_buffer.length()) 
     {
         size_t bytes_left = _header_buffer.length() - _headers_sent;
         ssize_t sent = send(_client_fd, _header_buffer.c_str() + _headers_sent, bytes_left, MSG_NOSIGNAL | MSG_DONTWAIT);
-        
-        if (sent == -1) throw std::runtime_error("Error sending headers.");
-		else if (sent == EWOULDBLOCK || sent == EAGAIN) {
-			// Socket buffer is full, wait for the next EPOLLOUT event
-			return;
-		}
-        
-        _headers_sent += sent;
+        if (sent == -1)
+			throw ConnectionClosed();
+		_headers_sent += sent;
         updateActivity();
-        return; // Return and wait for the next EPOLLOUT event
+        return;
     }
-	if (_request.getMethod() == HEAD) {
-		// For HEAD requests, we only send headers, so we can close the connection after headers are sent.
+	if (_request.getMethod() == HEAD)
 		throw ConnectionClosed();
-	}
-
-    // PHASE 2: Send Body
     if (_response.isFile()) 
     {
-        // It's a large file. Open-on-demand to avoid copy-constructor crashes!
         std::ifstream file(_response.getFilePath().c_str(), std::ios::binary);
         if (!file.is_open()) throw std::runtime_error("Failed to open response file.");
-
-        // Jump to exactly where we left off
         file.seekg(_body_sent);
-
-        // Read an 8KB chunk
         char chunk[8192];
         file.read(chunk, sizeof(chunk));
         size_t bytes_read = file.gcount();
         file.close();
-
-        // Send the chunk over the socket
         if (bytes_read > 0) {
             ssize_t sent = send(_client_fd, chunk, bytes_read, MSG_NOSIGNAL | MSG_DONTWAIT);
-            if (sent == -1) throw std::runtime_error("Error sending file chunk.");
-			else if (sent == EWOULDBLOCK || sent == EAGAIN) {
-				// Socket buffer is full, wait for the next EPOLLOUT event
-				return;
-			}
+            if (sent == -1)
+				throw ConnectionClosed();
             _body_sent += sent;
             updateActivity();
         }
-
-        // Check if we are totally finished
-        if (_body_sent >= _response.getFileSize()) {
-			std::cout << "File fully sent. Closing connection." << "file is: " << _response.getFilePath() << std::endl;
-			std::cout << "Headers were: " << _header_buffer << std::endl;
-			throw ConnectionClosed(); // Closes the socket safely
-        }
-    } 
+        if (_body_sent == _response.getFileSize())
+			throw ConnectionClosed();
+    }
     else 
     {
-        // It's a small string body (like an error page HTML)
         const std::string& body = _response.getBody();
         size_t bytes_left = body.length() - _body_sent;
         ssize_t sent = send(_client_fd, body.c_str() + _body_sent, bytes_left, MSG_NOSIGNAL | MSG_DONTWAIT);
-        if (sent == -1) throw std::runtime_error("Error sending response body.");
-		else if (sent == EWOULDBLOCK || sent == EAGAIN) {
-			// Socket buffer is full, wait for the next EPOLLOUT event
-			return;
-		}
+        if (sent == -1)
+			throw ConnectionClosed();
         _body_sent += sent;
         updateActivity();
-
-        if (_body_sent >= body.length()) {
-			std::cout << "Body fully sent. Closing connection." << std::endl;
-			std::cout << "Response body was: " << _header_buffer << body << std::endl;
-            throw ConnectionClosed(); // Closes the socket safely
-        }
+        if (_body_sent >= body.length())
+            throw ConnectionClosed();
     }
 }
+
 void Connection::handleCgiTimeout()
 {
     _response.buildErrorResponse(504, _matched_server->error_pages);
@@ -212,7 +180,7 @@ std::vector<std::string> Connection::buildCgiEnv(const std::string& physical_pat
 }
 
 int Connection::checkCGI(const std::string& path)
-{\
+{
 	size_t ext_pos = path.find_last_of('.');
 	if (ext_pos == std::string::npos)
 		return 0;
