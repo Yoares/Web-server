@@ -18,16 +18,15 @@ struct ListenParams {
 };
 
 struct Server {
-    // Remove the old single ip, port, and socket_fd:
-    // std::string ip;
-    // int port;
-    // int socket_fd;
+
 
     // 2. Replace them with a vector of your new struct:
     std::vector<ListenParams> listen_list;
 
     std::vector<std::string> server_names;
     size_t client_max_body_size;
+    std::string root ;
+    std::string index ;
     std::map<int, std::string> error_pages;
     std::vector<Location> locations;
 

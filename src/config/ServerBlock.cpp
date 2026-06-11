@@ -1,7 +1,7 @@
 #include "../../inc/config/ServerBlock.hpp"
 
 // --- C++98 Default Constructor ---
-    // Sets safe fallbacks to prevent undefined behavior
+//     Sets safe fallbacks to prevent undefined behavior
     // Server::Server() : 
     //     ip("0.0.0.0"), 
     //     port(80),                      // Standard HTTP port fallback

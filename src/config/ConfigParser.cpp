@@ -72,6 +72,14 @@ Server ConfigParser::parse_server() {
             }
             expect(";");
         }
+        else if (directive == "root") {
+            srv.root = (consume().c_str());
+            expect(";");
+        }
+        else if (directive == "index") {
+            srv.index = (consume().c_str());
+            expect(";");
+        }
         else if (directive == "client_max_body_size") {
             srv.client_max_body_size = (size_t)std::atoi(consume().c_str());
             expect(";");
@@ -84,7 +92,7 @@ Server ConfigParser::parse_server() {
         }
         else if (directive == "location") {
             // Pass the server's current limit down to the location
-            srv.locations.push_back(parse_location(srv.client_max_body_size));
+            srv.locations.push_back(parse_location(srv.client_max_body_size, srv.root, srv.index));
         }
         else {
             throw std::runtime_error("Config Syntax Error: Unknown server directive '" + directive + "'");
@@ -96,11 +104,14 @@ Server ConfigParser::parse_server() {
 }
 
 // Parses everything inside location /path { ... }
-Location ConfigParser::parse_location(size_t inherited_max_body_size) {
+Location ConfigParser::parse_location(size_t inherited_max_body_size, std::string& inher_root, std::string& inher_index) {
     Location loc;
 
     // 1. Inherit from parent server block
     loc.client_max_body_size = inherited_max_body_size;
+    loc.root = inher_root;
+    loc.index = inher_index;
+
 
     loc.path = consume();
     expect("{");
