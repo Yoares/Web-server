@@ -102,12 +102,7 @@ void Connection::sendResponse()
 }
 void Connection::handleCgiTimeout()
 {
-    // Fetch the correct error pages for this server block
-    std::map<int, std::string> err_pages;
-    err_pages = _matched_server->error_pages;
-
-    // Build a 504 Gateway Timeout response
-    _response.buildErrorResponse(504, err_pages);
+    _response.buildErrorResponse(504, _matched_server->error_pages);
     _header_buffer = _response.getHeadersAsString();
     _is_response_ready = true;
 }
@@ -216,24 +211,25 @@ std::vector<std::string> Connection::buildCgiEnv(const std::string& physical_pat
     return env;
 }
 
-int Connection::checkCGI(const std::string& path) {
-	// Check if the resolved path matches any CGI location
+int Connection::checkCGI(const std::string& path)
+{\
 	size_t ext_pos = path.find_last_of('.');
 	if (ext_pos == std::string::npos)
-		return 0; // No extension, so not a CGI script
+		return 0;
 	std::string ext = path.substr(ext_pos);
 	std::map<std::string, std::string>::const_iterator it = matched_location->cgi_pass.find(ext);
 	if (it == matched_location->cgi_pass.end())
-		return 0; // Extension not configured for CGI
+		return 0;
 	_cgi = CgiHandler(path, it->second, _request.getMethod(), _request.getTempFilename());
 	std::vector<std::string> envp_vec = buildCgiEnv(path);
-	if (!_cgi.execute(envp_vec)) {
+	if (!_cgi.execute(envp_vec))
+	{
 		_response.buildErrorResponse(500, _matched_server->error_pages);
 		_header_buffer = _response.getHeadersAsString();
 		_is_response_ready = true;
-		return 0; // Failed to execute CGI, but we handled it gracefully with an error response
+		return 0;
 	}
-	return 1; // Extension is configured for CGI
+	return 1;
 }
 
 #include <cstdlib> // For std::atoi
