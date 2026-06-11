@@ -19,6 +19,7 @@ class Connection {
         std::vector<Server> _possible_servers;
         const Server* _matched_server; // Starts as NULL
         HttpRequest _request;
+		Location _fall_back_location;
 		
 		time_t _last_activity;
         const Location* matched_location;

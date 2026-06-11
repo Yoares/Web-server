@@ -222,6 +222,10 @@ bool PostHandler::processMultipart(const std::string& temp_file, const std::stri
                 }
             out_filename = filename;
             }
+			if (upload_dir.empty()) {
+				_response.buildErrorResponse(403, _server.error_pages);
+				return false;
+			}
             std::string final_path = upload_dir;
             if (final_path[final_path.length() - 1] != '/') 
                 final_path += "/";

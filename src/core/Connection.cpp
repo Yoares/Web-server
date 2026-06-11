@@ -322,6 +322,19 @@ int Connection::handleRequest()
 	{
 		_matched_server = findCorrectServer(_request.getHost());
 		matched_location = findLocation(_matched_server, _request.getPath());
+		if (matched_location == NULL)
+		{
+			_fall_back_location.path = "/";
+			_fall_back_location.root = _matched_server->root;
+			_fall_back_location.index = _matched_server->index;
+			_fall_back_location.allowed_methods.push_back("GET");
+			_fall_back_location.allowed_methods.push_back("POST");
+			_fall_back_location.allowed_methods.push_back("HEAD");
+			_fall_back_location.client_max_body_size = _matched_server->client_max_body_size;
+			_fall_back_location.autoindex = false;
+			_fall_back_location.upload_dir = "";
+			matched_location = &_fall_back_location;
+		}
 	}
 	if (_request.getState() == ERROR)
 	{
