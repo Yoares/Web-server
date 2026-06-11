@@ -114,8 +114,8 @@ bool CgiHandler::execute(const std::vector<std::string>& envp_vec) {
     _state = CGI_RUNNING;
     return true;
 }
-std::string CgiHandler::getOutFile() const {
-	std::cout << "[CGI] getOutFile called. Output file: " << _output_file << std::endl;
+std::string CgiHandler::getOutFile() const
+{
 	return _output_file;
 }
 

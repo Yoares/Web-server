@@ -237,60 +237,66 @@ int Connection::checkCGI(const std::string& path) {
 }
 
 #include <cstdlib> // For std::atoi
-void Connection::parseCgiHeaders(const std::string& headers_str) {
-	size_t pos = 0;
-    while (pos < headers_str.length()) {
-        // Find the end of the current line
-        size_t eol = headers_str.find('\n', pos);
-        if (eol == std::string::npos) eol = headers_str.length();
 
-        // Extract the line and remove the trailing '\r' if it exists
-        std::string line = headers_str.substr(pos, eol - pos);
-        if (!line.empty() && line[line.length() - 1] == '\r') {
-            line.erase(line.length() - 1);
-        }
-        pos = eol + 1; // Move past the '\n' for the next loop
-
-        // Split the line into Key and Value by finding the ':'
-        size_t colon = line.find(':');
-        if (colon != std::string::npos) {
-            std::string key = line.substr(0, colon);
-            std::string value = line.substr(colon + 1);
-
-            // Trim leading spaces from the value (e.g., " text/html" -> "text/html")
-            size_t start = value.find_first_not_of(" \t");
-            if (start != std::string::npos) {
-                value = value.substr(start);
-            } else {
-                value = ""; // Value was only spaces
-            }
-
-            // ==========================================
-            // STEP 4: Handle Special CGI Headers
-            // ==========================================
-            if (key == "Status") {
-                // The Status header looks like "200 OK" or "404 Not Found"
-                // std::atoi will stop reading at the space, so "200 OK" becomes the int 200
-                _response.setStatusCode(std::atoi(value.c_str()));
-            } else {
-                // For all other headers (Content-Type, Set-Cookie, etc.), pass them normally
-                _response.setHeader(key, value);
-            }
-        }
-    }
+void Connection::parseCgiHeaders(const std::string& headers_str)
+{
+	size_t i = 0;
+	size_t header_end = headers_str.find("\r\n\r\n");
+	size_t del_size = 2;
+	std::string key;
+	std::string value;
+	std::string line;
+	if (header_end == std::string::npos)
+		header_end = headers_str.length();
+	while (i < header_end)
+	{
+		size_t line_end = headers_str.find("\r\n", i);
+		if (line_end == std::string::npos)
+		{
+			line_end = headers_str.find("\n", i);
+			del_size = 1;
+		}
+		if (line_end == std::string::npos)
+			line_end = headers_str.length();
+		line = headers_str.substr(i, line_end - i);
+		size_t colon_pos = line.find(':');
+		if (colon_pos != std::string::npos)
+		{
+			key = line.substr(0, colon_pos);
+			size_t value_start = colon_pos + 1;
+			value_start = line.find_first_not_of(" \t", value_start);
+			if (value_start == std::string::npos)
+			{
+				value = line.substr(colon_pos + 1);
+			}
+			else
+			{
+				value = line.substr(value_start);
+			}
+			if (key == "Status")
+			{
+				int status_code = std::atoi(value.c_str());
+				_response.setStatusCode(status_code);
+			}
+			else
+			{
+				_response.setHeader(key, value);
+			}
+		}
+		i = line_end + del_size;
+	}
 }
+
 void Connection::readCgiOutput()
 {
-	
-    if (!_cgi.readOutputNonBlocking())
+	if (!_cgi.readOutputNonBlocking())
 	{
 		std::string out_file = _cgi.getOutFile();
 		if (out_file.empty())
 			_response.setBody("");
 		else
 			_response.setFile(out_file, _cgi.getBodySize());
-        parseCgiHeaders(_cgi.getOutput());
-		std::cout << "Body size from CGI is: " << _cgi.getBodySize() << std::endl;
+		parseCgiHeaders(_cgi.getOutput());
 		_header_buffer = _response.getHeadersAsString();
 		_is_response_ready = true;		
 	}
@@ -387,73 +393,46 @@ int Connection::handleRequest()
 
 const Server *Connection::findCorrectServer(const std::string &host)
 {
-	// 1. Clean the Host header by removing the port if it exists
-	// (e.g., "localhost:8080" becomes "localhost")
 	std::string hostname = host;
 	size_t colon_pos = hostname.find(':');
 	if (colon_pos != std::string::npos)
-	{
 		hostname = hostname.substr(0, colon_pos);
-	}
-
-	// 2. Iterate through all possible server blocks mapped to this socket
 	for (size_t i = 0; i < _possible_servers.size(); ++i)
 	{
-
-		// Check if the cleaned Host header matches any of the server_names
 		for (size_t j = 0; j < _possible_servers[i].server_names.size(); ++j)
 		{
 			if (_possible_servers[i].server_names[j] == hostname)
-			{
-				// Exact match found!
 				return &_possible_servers[i];
-			}
 		}
 	}
-
-	// 3. Nginx Default Behavior: If the Host header doesn't match any server_name
-	// (or if it's an IP address), default to the first server block defined for this IP:Port.
 	return &_possible_servers[0];
 }
 
 const Location *Connection::findLocation(const Server *server, const std::string &path)
 {
-
 	const Location *best_match = NULL;
 	size_t max_match_length = 0;
 
-	// Iterate through all location blocks in the matched server
 	for (size_t i = 0; i < server->locations.size(); ++i)
 	{
 		const std::string &loc_path = server->locations[i].path;
-
-		// Check if the requested path starts with the location's path (Prefix matching)
 		if (path.find(loc_path) == 0)
 		{
-
-			// Longest Prefix Match logic:
-			// If requested path is "/images/cat.jpg", and we have locations "/" and "/images/",
-			// we want to match "/images/" because it is more specific.
 			if (loc_path.length() > max_match_length)
 			{
-
-				// Additional safety: ensure it's a clean boundary match.
-				// For example, location "/img" shouldn't match path "/images/cat.jpg".
-				// It should either be an exact match, end with a trailing slash,
-				// or the next character in the requested path must be a slash.
 				bool is_clean_boundary = false;
 
 				if (path.length() == loc_path.length())
 				{
-					is_clean_boundary = true; // Exact match (e.g., loc: "/test", path: "/test")
+					is_clean_boundary = true;
 				}
 				else if (loc_path[loc_path.length() - 1] == '/')
 				{
-					is_clean_boundary = true; // Ends with slash (e.g., loc: "/images/", path: "/images/cat.jpg")
+					is_clean_boundary = true;
 				}
 				else if (path[loc_path.length()] == '/')
 				{
-					is_clean_boundary = true; // Next char is slash (e.g., loc: "/images", path: "/images/cat.jpg")
+					is_clean_boundary = true;
 				}
 
 				if (is_clean_boundary)
@@ -464,8 +443,5 @@ const Location *Connection::findLocation(const Server *server, const std::string
 			}
 		}
 	}
-
-	// Returns a pointer to the best matching location block, or NULL if none matched
-	// (though usually you always have a fallback "/" location defined in the config)
 	return best_match;
 }
