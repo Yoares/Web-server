@@ -28,9 +28,9 @@ CgiHandler::~CgiHandler() {
     if (_stdout_pipe[1] != -1) close(_stdout_pipe[1]);
 	if (cgi_output_fd != -1) close(cgi_output_fd);
     
-    if (_pid > 0 && _state == CGI_RUNNING) {
-        killProcess(); // Terminate rogue child process
-        waitpid(_pid, NULL, WNOHANG); // Reap the zombie
+    if (_pid > 0) {
+        killProcess(); 
+        waitpid(_pid, NULL, 0); 
     }
 }
 
@@ -114,8 +114,8 @@ bool CgiHandler::execute(const std::vector<std::string>& envp_vec) {
     _state = CGI_RUNNING;
     return true;
 }
-std::string CgiHandler::getOutFile() const {
-	std::cout << "[CGI] getOutFile called. Output file: " << _output_file << std::endl;
+std::string CgiHandler::getOutFile() const
+{
 	return _output_file;
 }
 
