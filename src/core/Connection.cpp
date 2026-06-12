@@ -8,9 +8,7 @@ const char* Connection::ConnectionClosed::what() const throw() {
 void Connection::handlePost(const Location& loc, std::string _path) {
     // Failsafe check
     if (!_matched_server) {
-        _response.buildErrorResponse(500, _possible_servers[0].error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(500);
         return;
     }
     PostHandler post_handler(_request, _response, *_matched_server, loc);
@@ -19,6 +17,12 @@ void Connection::handlePost(const Location& loc, std::string _path) {
     // Finalize response flags for the Connection object
     _header_buffer = _response.getHeadersAsString();
     _is_response_ready = true;
+}
+void Connection::buildErrorResponse(int code)
+{
+	_response.buildErrorResponse(code, _matched_server->error_pages);
+	_header_buffer = _response.getHeadersAsString();
+	_is_response_ready = true;
 }
 
 void Connection::sendResponse()
@@ -70,9 +74,7 @@ void Connection::sendResponse()
 
 void Connection::handleCgiTimeout()
 {
-    _response.buildErrorResponse(504, _matched_server->error_pages);
-    _header_buffer = _response.getHeadersAsString();
-    _is_response_ready = true;
+    buildErrorResponse(504);
 }
 
 #include <sstream>
@@ -192,9 +194,7 @@ int Connection::checkCGI(const std::string& path)
 	std::vector<std::string> envp_vec = buildCgiEnv(path);
 	if (!_cgi.execute(envp_vec))
 	{
-		_response.buildErrorResponse(500, _matched_server->error_pages);
-		_header_buffer = _response.getHeadersAsString();
-		_is_response_ready = true;
+		buildErrorResponse(500);
 		return 0;
 	}
 	return 1;
@@ -307,12 +307,8 @@ int Connection::handleRequest()
 			err_pages = _matched_server->error_pages;
 		else
 			err_pages = _possible_servers[0].error_pages;
-
-		_response.buildErrorResponse(_request.getErrorCode(), err_pages);
-		_header_buffer = _response.getHeadersAsString();
-		_is_response_ready = true;
-		
-		return 0; // STOP EXECUTION! Do not parse headers or bodies.
+		buildErrorResponse(_request.getErrorCode());
+		return 0;
 	}
 	if (_request.getState() == HEADERS_COMPLETE)
 	{
@@ -322,9 +318,7 @@ int Connection::handleRequest()
 		}
 		if (_request.isChunked() == false && _request.getContentLength() > current_limit)
 		{
-			_response.buildErrorResponse(413, _matched_server->error_pages);
-			_header_buffer = _response.getHeadersAsString();
-			_is_response_ready = true;
+			buildErrorResponse(413);
 			return 0;
 		}
 		_request.startBodyParsing();
@@ -349,9 +343,7 @@ int Connection::handleRequest()
 		if (req_method_str == "HEAD")
 			req_method_str = "GET"; // Handle HEAD as GET internally, but we'll just send headers later without body.
 		if (!is_allowed) {
-			_response.buildErrorResponse(405, _matched_server->error_pages);
-			_header_buffer = _response.getHeadersAsString();
-			_is_response_ready = true;
+			buildErrorResponse(405);
 			return 0; // Stop execution, the method is forbidden here!
 		}
 		std::string path = resolvePhysicalPath(_request.getPath(), *matched_location);

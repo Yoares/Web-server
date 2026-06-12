@@ -199,6 +199,7 @@ bool CgiHandler::checkTimeout(int timeout_seconds) {
 void CgiHandler::killProcess() {
     if (_pid > 0) {
         kill(_pid, SIGKILL);
+		_pid = -1;
     }
 }
 

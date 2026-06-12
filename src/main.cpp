@@ -26,6 +26,7 @@ void handle_sigint(int sig)
 int main(int argc, char **argv) {
     // 1. Determine the config file path
     // The subject allows a default path if no argument is provided.
+	signal(SIGPIPE, SIG_IGN);
     std::string config_file = "conf/default.conf";
     if (argc == 2) {
         config_file = argv[1];
