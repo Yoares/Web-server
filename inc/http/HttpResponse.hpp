@@ -24,6 +24,8 @@ private:
 
     std::string getReasonPhrase(int code) const;
 
+    std::vector<std::string> _set_cookies;
+
 public:
     HttpResponse();
     ~HttpResponse();
@@ -43,6 +45,10 @@ public:
     std::string getFilePath() const { return _file_path; }
     size_t getFileSize() const { return _file_size; }
     std::string getBody() const { return _body; }
+
+    // cookies
+    void setCookie(const std::string& name, const std::string& value, int max_age);
+
 };
 
 #endif

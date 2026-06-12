@@ -496,14 +496,30 @@ void HttpRequest::ShowBuff()
 	std::cout << buffer;
 }
 
-// void HttpRequest::parseCookies(const std::string& cookie_header){
-// 	size_t pos = 0;
+void HttpRequest::parseCookies(const std::string& cookie_header){
+	size_t pos = 0;
 
-// 	while (pos < cookie_header.length()){
-// 		size_t eq_pos = cookie_header.find('=', pos);
-//         size_t semi_pos = cookie_header.find(';', pos);
-// 		if (semi_pos == std::string::npos){
-// 			semi_pos = cookie_header.length();
-// 		}
-// 	}
-// }
+	while (pos < cookie_header.length()){
+		size_t eq_pos = cookie_header.find('=', pos);
+		size_t semi_pos = cookie_header.find(';', pos);
+
+		if (eq_pos != std::string::npos && eq_pos < semi_pos){
+			std::string key = cookie_header.substr(pos, eq_pos - pos);
+			std::string value = cookie_header.substr(eq_pos + 1, semi_pos - eq_pos - 1);
+			size_t key_start = key.find_first_not_of(" \t");
+            if (key_start != std::string::npos)
+                key = key.substr(key_start);
+			_cookies[key] = value;
+			pos = semi_pos + 1;
+		}
+	}
+}
+
+std::string HttpRequest::getCookie(const std::string& name) const{
+
+	std::map<std::string, std::string>::const_iterator it = _cookies.find(name);
+	if (it != _cookies.end()){
+		return it->second;
+	}
+	return "";
+}

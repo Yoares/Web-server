@@ -53,6 +53,9 @@ std::string HttpResponse::getHeadersAsString() const {
     for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); ++it) {
         out << it->first << ": " << it->second << "\r\n";
     }
+    for (size_t i = 0; i < _set_cookies.size(); ++i) {
+        out << "Set-Cookie: " << _set_cookies[i] << "\r\n";
+    }
     out << "\r\n"; // Blank line separating headers from body
     return out.str();
 }
@@ -94,3 +97,10 @@ void HttpResponse::buildErrorResponse(int code, const std::map<int, std::string>
 }
 
 // ... (Keep your buildErrorResponse function from the previous step)
+
+void HttpResponse::setCookie(const std::string& name, const std::string& value, int max_age) {
+    std::ostringstream cookie;
+    cookie << name << "=" << value << "; Max-Age=" << max_age << "; Path=/; HttpOnly";
+    _set_cookies.push_back(cookie.str());
+    setHeader("Set-Cookie", cookie.str());
+}
