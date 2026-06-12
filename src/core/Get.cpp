@@ -70,9 +70,7 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
     if (loc.autoindex){
         DIR *dir = opendir(path.c_str());
         if (dir == NULL){
-            _response.buildErrorResponse(500, _matched_server->error_pages);
-            _header_buffer = _response.getHeadersAsString();
-            _is_response_ready = true;
+            buildErrorResponse(500);
             return;
         }
         std::string body;
@@ -98,9 +96,7 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
         return;
     }
     else { //this if the autoindex is off
-        _response.buildErrorResponse(404, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(404);
         return;
     }
     
@@ -110,18 +106,14 @@ void Connection::serveFile(const std::string& _path) {
 
     if (access(_path.c_str(), R_OK) == -1)
     {
-        _response.buildErrorResponse(403, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(403);
         return;
     }
 
     int fd = open(_path.c_str(), O_RDONLY);
     if (fd == -1)
     {
-        _response.buildErrorResponse(500, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(500);
         return;
     }
 
@@ -129,9 +121,7 @@ void Connection::serveFile(const std::string& _path) {
     if (!readFile(fd, content))
     {
         close(fd);
-        _response.buildErrorResponse(500, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(500);
         return;
     }
 
@@ -149,43 +139,33 @@ void Connection::handleGet(const Location& loc, std::string _path) {
 
     if (_path.empty() || _request.getPath().find("..") != std::string::npos)
     {
-        _response.buildErrorResponse(400, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(400);
         return;
     }
     struct stat lst;
     if (lstat(_path.c_str(), &lst) == -1) // symlinks protection
     {   
         if(errno == ENOENT)
-            _response.buildErrorResponse(404, _matched_server->error_pages);
+            buildErrorResponse(404);
         else if (errno == EACCES)
-            _response.buildErrorResponse(403, _matched_server->error_pages);
+            buildErrorResponse(403);
         else
-            _response.buildErrorResponse(500, _matched_server->error_pages);
-        
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+            buildErrorResponse(500);
         return ;
     }
 
     if (S_ISLNK(lst.st_mode)){
-         _response.buildErrorResponse(403, _matched_server->error_pages);
-         _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+         buildErrorResponse(403);
         return ;
     }
     struct stat st;
     if (stat(_path.c_str(), &st) == -1){
         if(errno == ENOENT)
-            _response.buildErrorResponse(404, _matched_server->error_pages);
+            buildErrorResponse(404);
         else if (errno == EACCES)
-            _response.buildErrorResponse(403, _matched_server->error_pages);
+            buildErrorResponse(403);
         else
-            _response.buildErrorResponse(500, _matched_server->error_pages);
-
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+            buildErrorResponse(500);
         return ;
     }
 
@@ -211,9 +191,7 @@ void Connection::handleGet(const Location& loc, std::string _path) {
     // Only regular files allowed
     if (!S_ISREG(st.st_mode))
     {
-        _response.buildErrorResponse(403, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(403);
         return;
     }
 

@@ -11,30 +11,22 @@ void Connection::handleDelete(std::string path) {
 
     if (path.empty()|| _request.getPath().find("..") != std::string::npos)
     {
-        _response.buildErrorResponse(400, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(400);
         return;
     }
     struct stat st;
 
     if (stat(path.c_str(), &st) == -1){
-        _response.buildErrorResponse(404, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(404);
         return;
     }
     if(S_ISDIR(st.st_mode))
     {
-        _response.buildErrorResponse(403, _matched_server->error_pages);
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(403);
         return;
     }
     if (access(path.c_str(), W_OK) == -1) {
-        _response.buildErrorResponse(403, _matched_server->error_pages); // Forbidden
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
+        buildErrorResponse(403);
         return;
     }
     if (unlink(path.c_str()) == 0) {
@@ -42,7 +34,7 @@ void Connection::handleDelete(std::string path) {
         _response.setBody(""); 
     } else {
         // OS level failure (e.g., file locked by another process)
-        _response.buildErrorResponse(500, _matched_server->error_pages);
+        buildErrorResponse(500);
     }
     _header_buffer = _response.getHeadersAsString();
     _is_response_ready = true;
