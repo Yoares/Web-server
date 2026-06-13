@@ -142,6 +142,41 @@ void Connection::handleGet(const Location& loc, std::string _path) {
         buildErrorResponse(400);
         return;
     }
+    if (_request.getPath() == "/cookie") {
+        std::string session_id = _request.getCookie("session_id");
+        bool is_new_session = false;
+
+        if (!_session_manager->isValidSession(session_id)) {
+            session_id = _session_manager->createSession();
+            is_new_session = true;
+        } else {
+            _session_manager->updateSession(session_id);
+        }
+
+        _session_manager->incrementVisitCount(session_id);
+        int visits = _session_manager->getVisitCount(session_id);
+        
+        if (is_new_session) {
+            _response.setCookie("session_id", session_id, 3600); 
+        }
+
+        std::string html = "<html><head><title>Cookie Test</title><meta charset='utf-8'></head>";
+        html += "<body style='font-family: Arial, sans-serif; text-align: center; margin-top: 50px;'>";
+        html += "<h1>🍪 Session Management Success!</h1>";
+        html += "<p>Your unique Session ID is: <strong>" + session_id + "</strong></p>";
+        html += "<h2>You have visited this server <span style='color: green; font-size: 2em;'>" + to_string(visits) + "</span> times.</h2>";
+        html += "<p>Refresh the page to see the counter go up!</p>";
+        html += "</body></html>";
+
+        _response.setStatusCode(200);
+        _response.setHeader("Content-Type", "text/html");
+        _response.setHeader("Content-Length", to_string(html.length()));
+        _response.setBody(html); 
+        
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return; // We return immediately, skipping the physical file checks!
+    }
     struct stat lst;
     if (lstat(_path.c_str(), &lst) == -1) // symlinks protection
     {   
@@ -193,42 +228,6 @@ void Connection::handleGet(const Location& loc, std::string _path) {
     {
         buildErrorResponse(403);
         return;
-    }
-    std::string session_id = _request.getCookie("session_id");
-    bool is_new_session = false;
-
-    if (!_session_manager->isValidSession(session_id)) {
-        session_id = _session_manager->createSession();
-        is_new_session = true;
-    } else {
-        _session_manager->updateSession(session_id);
-    }
-
-    _session_manager->incrementVisitCount(session_id); 
-    int visits = _session_manager->getVisitCount(session_id); 
-    // std::cout << "[DEBUG] User visits: " << visits << std::endl;
-    
-    //Send the cookie back to the browser ONLY if it's new
-    if (is_new_session) {
-        _response.setCookie("session_id", session_id, 3600); // Expires in 1 hour
-    }
-    if (_request.getPath() == "/cookie") {
-        std::string html = "<html><head><title>Cookie Test</title></head>";
-        html += "<body style='font-family: Arial, sans-serif; text-align: center; margin-top: 50px;'>";
-        html += "<h1>🍪 Session Management Success!</h1>";
-        html += "<p>Your unique Session ID is: <strong>" + session_id + "</strong></p>";
-        html += "<h2>You have visited this server <span style='color: green; font-size: 2em;'>" + to_string(visits) + "</span> times.</h2>";
-        html += "<p>Refresh the page to see the counter go up!</p>";
-        html += "</body></html>";
-
-        _response.setStatusCode(200);
-        _response.setHeader("Content-Type", "text/html");
-        _response.setHeader("Content-Length", to_string(html.length()));
-        _response.setBody(html); // setBody automatically sets the connection to close, etc.
-        
-        _header_buffer = _response.getHeadersAsString();
-        _is_response_ready = true;
-        return; // Return early so we don't try to call serveFile()!
     }
     serveFile(_path);
 }
