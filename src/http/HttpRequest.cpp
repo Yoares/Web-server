@@ -56,7 +56,7 @@ void HttpRequest::parseChunkedBody()
 			// Convert hex string to integer
 			char *end;
 			long val = std::strtol(hex_str.c_str(), &end, 16);
-			if (*end != '\0' && *end != ' ' && *end != '\t')
+			if (end == hex_str.c_str() || (*end != '\0' && *end != ' ' && *end != '\t'))
 			{
 				_error_code = 400;
 				state = ERROR;
@@ -281,13 +281,18 @@ void HttpRequest::loadPathAndQuery()
 
 void HttpRequest::checkHttpVersion()
 {
-	if (buffer.find("HTTP/1.1", offset_) != std::string::npos)
+	if (buffer.length() >= offset_ + 8 && buffer.substr(offset_, 8) == "HTTP/1.1")
+	{
 		http_version_valid = true;
+	}
 	else
 	{
 		http_version_valid = false;
 		state = ERROR;
-		_error_code = 505;
+		if (buffer.length() >= offset_ + 5 && buffer.substr(offset_, 5) == "HTTP/")
+			_error_code = 505;
+		else
+			_error_code = 400;
 	}
 }
 

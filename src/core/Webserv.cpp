@@ -181,7 +181,7 @@ void Webserv::checkTimeouts()
 
 void Webserv::acceptConnections(std::vector<epoll_event> &events)
 {
-	for (size_t i = 0; i < events.size(); ++i)
+	for (size_t i = 0; i < events.size(); i++)
 	{
 		bool isServerSocket = fdToServers.find(events[i].data.fd) != fdToServers.end();
 		if (isServerSocket == true)
@@ -204,6 +204,8 @@ void Webserv::acceptConnections(std::vector<epoll_event> &events)
 			}
 			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd], &_session_manager)));
 			std::cout << "[INFO] Accepted new connection (FD: " << client_fd << ")" << std::endl;
+			events.erase(events.begin() + i);
+			i--;
 		}
 	}
 }
@@ -232,7 +234,7 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 					{
 						struct epoll_event ev;
 						std::memset(&ev, 0, sizeof(ev));
-						ev.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
+						ev.events = EPOLLIN;
 						ev.data.fd = conn._cgi.getStdoutFd();
 						if (epoll_ctl(epollFd, EPOLL_CTL_ADD, conn._cgi.getStdoutFd(), &ev) == -1)
 							throw std::runtime_error("Error modifying epoll for CGI handling");
@@ -286,23 +288,23 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 			if (found)
 			{
 				Connection &conn = cgi_it->second;
-				if (events[i].events & EPOLLERR)
-				{
-					std::cout << "[INFO] CGI process ended unexpectedly for client FD: " << cgi_it->first << std::endl;
-					conn._cgi.killProcess();
-					epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
-					conn.buildErrorResponse(500);
-					struct epoll_event ev;
-					std::memset(&ev, 0, sizeof(ev));
-					ev.events = EPOLLOUT;
-					ev.data.fd = cgi_it->first;
-					if (epoll_ctl(epollFd, EPOLL_CTL_MOD, cgi_it->first, &ev) == -1)
-					{
-						throw std::runtime_error("Error modifying epoll to EPOLLOUT after CGI completion");
-					}
-					continue;
-				}
-				if (events[i].events & (EPOLLIN | EPOLLHUP))
+				// if (events[i].events & EPOLLERR)
+				// {
+				// 	std::cout << "[INFO] CGI process ended unexpectedly for client FD: " << cgi_it->first << std::endl;
+				// 	conn._cgi.killProcess();
+				// 	epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
+				// 	conn.buildErrorResponse(500);
+				// 	struct epoll_event ev;
+				// 	std::memset(&ev, 0, sizeof(ev));
+				// 	ev.events = EPOLLOUT;
+				// 	ev.data.fd = cgi_it->first;
+				// 	if (epoll_ctl(epollFd, EPOLL_CTL_MOD, cgi_it->first, &ev) == -1)
+				// 	{
+				// 		throw std::runtime_error("Error modifying epoll to EPOLLOUT after CGI completion");
+				// 	}
+				// 	continue;
+				// }
+				if (events[i].events & (EPOLLIN | EPOLLHUP | EPOLLERR))
 				{
 					conn.readCgiOutput();
 					if (conn.isResponseReady())

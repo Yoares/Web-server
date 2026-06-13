@@ -302,11 +302,8 @@ int Connection::handleRequest()
 	}
 	if (_request.getState() == ERROR)
 	{
-		std::map<int, std::string> err_pages;
-		if (_matched_server)
-			err_pages = _matched_server->error_pages;
-		else
-			err_pages = _possible_servers[0].error_pages;
+		if (!_matched_server)
+			_matched_server = &_possible_servers[0];
 		buildErrorResponse(_request.getErrorCode());
 		return 0;
 	}
@@ -322,6 +319,11 @@ int Connection::handleRequest()
 			return 0;
 		}
 		_request.startBodyParsing();
+		if (_request.getState() == ERROR)
+		{
+			buildErrorResponse(_request.getErrorCode());
+			return 0;
+		}
 	}
 	if (_request.getState() == COMPLETE) 
     {

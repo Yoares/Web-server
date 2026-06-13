@@ -65,8 +65,8 @@ bool CgiHandler::execute(const std::vector<std::string>& envp_vec) {
         // --- CHILD PROCESS ---
         
         // 1. Handle STDIN via the temporary file
-		//std::cout << "[CGI] Child process started. Setting up execution context..." << std::endl;
-		//std::cout << "[CGI] tmp_post_file: " << _tmp_post_file << std::endl;
+		std::cout << "[CGI] Child process started for " << _script_path << std::endl;
+		std::cout << "[CGI] tmp_post_file: " << _tmp_post_file << std::endl;
         if (_method == POST) {
             int file_fd = open(_tmp_post_file.c_str(), O_RDONLY);
             if (file_fd != -1) {
@@ -172,6 +172,7 @@ bool CgiHandler::readOutputNonBlocking() {
             if (WIFEXITED(status)) {
                 _exit_status = WEXITSTATUS(status);
             }
+			_pid = -1;
         }
 		close(cgi_output_fd);
 		cgi_output_fd = -1;
@@ -187,8 +188,9 @@ bool CgiHandler::readOutputNonBlocking() {
 bool CgiHandler::checkTimeout(int timeout_seconds) {
     if (_state == CGI_RUNNING) {
         if (std::time(NULL) - _start_time > timeout_seconds) {
-            //std::cerr << "[CGI] Timeout reached. Killing PID: " << _pid << std::endl;
             killProcess();
+			waitpid(_pid, NULL, 0);
+            _pid = -1;
             _state = CGI_ERROR;
             return true; // Timeout triggered
         }
@@ -199,7 +201,6 @@ bool CgiHandler::checkTimeout(int timeout_seconds) {
 void CgiHandler::killProcess() {
     if (_pid > 0) {
         kill(_pid, SIGKILL);
-		_pid = -1;
     }
 }
 
