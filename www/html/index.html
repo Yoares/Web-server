@@ -1,13 +1,39 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Webserv POST Tester</title>
+    <meta charset="UTF-8">
+    <title>Webserv POST & Cookie Tester</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-    <h2>Upload a File (Tests Multipart)</h2>
-    <form action="http://localhost:8080/upload" method="POST" enctype="multipart/form-data">
-        <input type="file" name="uploaded_file" required>
-        <button type="submit">Upload</button>
-    </form>
+<body class="bg-light">
+    <div class="container mt-5">
+        
+        <div class="card shadow-sm mb-4 border-primary">
+            <div class="card-body">
+                <h3 class="card-title text-primary">🍪 Active Session</h3>
+                <p class="card-text mb-1">
+                    <strong>Your browser's cookies:</strong> 
+                    <span id="cookieDisplay" class="font-monospace text-success">Checking...</span>
+                </p>
+                <p class="text-muted small mb-0">
+                    <em>These cookies will be automatically sent in the HTTP Headers when you submit the form below.</em>
+                </p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Upload Multiple Files</h3>
+                <form action="http://localhost:8080/upload" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="uploaded_files" class="form-label">Choose Files (Hold CTRL / CMD to select multiple)</label>
+                        <input class="form-control" type="file" id="uploaded_files" name="uploaded_files[]" multiple required>
+                    </div>
+                    <button type="submit" class="btn btn-primary px-4">Upload Files</button>
+                </form>
+            </div>
+        </div>
+
+    </div>
 </body>
 </html>

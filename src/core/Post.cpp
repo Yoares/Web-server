@@ -298,18 +298,27 @@ bool PostHandler::processMultipart(const std::string& temp_file, const std::stri
 }
 
 void PostHandler::execute(std::string path){
-	
+    
     if (path.empty()) {
         _response.buildErrorResponse(400, _server.error_pages);
         return;
     }
 
+    // --- DIRECTORY PROTECTION ---
+    struct stat st;
+    if (stat("www/html/uploads", &st) == -1) {
+        if (mkdir("www/html/uploads", 0777) == -1) {
+            _response.buildErrorResponse(500, _server.error_pages);
+            return;
+        }
+    }
+
     if (!validateUploadDirectory(path)) return;
+    
     if (_request.getContentLength() == 0) {
         // The 42 Go tester expects a simple 200 OK for an empty POST to the root.
-        // It does NOT want a file created, and it does not want a 201 status code.
         _response.setStatusCode(200);
-        _response.setBody(""); // Empty body for an empty request
+        _response.setBody(""); 
         return;
     }
 
@@ -317,8 +326,8 @@ void PostHandler::execute(std::string path){
 
     if (!validateBodySize(temp_file)) return;
 
-    // --- NEW LOGIC STARTS HERE ---
-    std::vector<std::string> uploaded_files;
+    // --- UPLOAD LOGIC ---
+    std::vector<std::string> uploaded_files; // Will hold all successful uploads
 
     if (isMultipart()) {
         std::map<std::string, std::string> headers = _request.getHeaders();
@@ -333,24 +342,24 @@ void PostHandler::execute(std::string path){
             return;
         }
 
-        std::string parsed_filename;
-    std::vector<std::string> parsed_filenames; // Now a vector!
+        std::vector<std::string> parsed_filenames; 
+        
+        // Pass the vector in, let processMultipart fill it with all extracted filenames
         if (!processMultipart(temp_file, boundary, path, parsed_filenames)) {
             return;
         }
         
-        // Add the file to our success list
-        uploaded_files.push_back(parsed_filename);
+        // Assign the extracted names to our main vector
+        uploaded_files = parsed_filenames; 
         buildSuccessResponse(uploaded_files, false);
     } 
     else {
+        // Raw binary / single file upload fallback
         std::string filename;
-        struct stat st;
         if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
             filename = "uploaded_raw_file.bin";
             path += "/" + filename; 
         } else {
-            // Extract the filename from the end of the path
             size_t pos = path.find_last_of('/');
             filename = (pos != std::string::npos) ? path.substr(pos + 1) : path;
         }
@@ -359,7 +368,6 @@ void PostHandler::execute(std::string path){
             return;
         }
         
-        // Add the file to our success list
         uploaded_files.push_back(filename);
         buildSuccessResponse(uploaded_files, true);
     }

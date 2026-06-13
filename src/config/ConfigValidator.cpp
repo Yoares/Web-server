@@ -70,8 +70,13 @@ void ConfigValidator::validate_location(const Location& loc) {
 
     // 4. Validate Upload Directory
     if (!loc.upload_dir.empty() && !is_directory(loc.upload_dir)) {
-        throw std::runtime_error("Validation Error: Upload directory does not exist: " + loc.upload_dir);
-    }
+            // Instead of immediately throwing an error, try to build the directory
+            if (mkdir(loc.upload_dir.c_str(), 0777) == -1) {
+                throw std::runtime_error("Validation Error: Upload directory does not exist and could not be created (Check permissions): " + loc.upload_dir);
+            } else {
+                std::cout << "[INFO] Created missing upload directory at boot: " << loc.upload_dir << std::endl;
+            }
+        }
 }
 
 // --- POSIX System Call Wrappers ---
