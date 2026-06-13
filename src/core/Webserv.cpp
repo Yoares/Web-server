@@ -2,7 +2,7 @@
 
 extern bool g_server_running;
 
-Webserv::Webserv(const std::vector<Server> &servers) : epollFd(-1)
+Webserv::Webserv(const std::vector<Server> &servers,  Logger_manager& _session_manager) : epollFd(-1), _session_manager(_session_manager)
 {
 	std::cout << "[INFO] Initializing Webserv..." << std::endl;
 
@@ -176,6 +176,7 @@ void Webserv::checkTimeouts()
 			it++;
 		}
 	}
+	_session_manager.cleanupExpiredSessions();
 }
 
 void Webserv::acceptConnections(std::vector<epoll_event> &events)
@@ -201,7 +202,7 @@ void Webserv::acceptConnections(std::vector<epoll_event> &events)
 				close(client_fd);
 				continue;
 			}
-			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd])));
+			connections.insert(std::make_pair(client_fd, Connection(client_fd, fdToServers[events[i].data.fd], &_session_manager)));
 			std::cout << "[INFO] Accepted new connection (FD: " << client_fd << ")" << std::endl;
 		}
 	}

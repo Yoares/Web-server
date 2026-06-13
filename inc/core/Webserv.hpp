@@ -6,6 +6,7 @@
 #include "Connection.hpp"
 #include <vector>
 #include "../config/Config.hpp"
+#include "../utils/Logger.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -21,7 +22,7 @@ class Webserv
 {
     private:
         int epollFd;
-        
+        Logger_manager& _session_manager;
         std::map <int, std::vector<Server> > fdToServers;
 
         std::map <int, Connection> connections;
@@ -38,7 +39,7 @@ class Webserv
 		};
 
     public:
-        Webserv(const std::vector<Server> &servers);
+        Webserv(const std::vector<Server> &servers, Logger_manager& _session_manager);
         ~Webserv();
 
         void run(); 

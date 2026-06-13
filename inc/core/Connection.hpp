@@ -12,11 +12,15 @@
 #include <sys/socket.h> // For getsockname
 #include <netinet/in.h> // For struct sockaddr_in
 #include <arpa/inet.h>
+#include "../utils/Logger.hpp"
+
+class Logger_manager;
 
 class Connection {
     private:
         int _client_fd;
         std::vector<Server> _possible_servers;
+        Logger_manager* _session_manager;
         const Server* _matched_server; // Starts as NULL
         HttpRequest _request;
 		Location _fall_back_location;
@@ -46,10 +50,10 @@ class Connection {
 
     public:
 		CgiHandler _cgi;
-        Connection(int fd, const std::vector<Server>& servers) 
-            : _client_fd(fd), _possible_servers(servers), _matched_server(NULL), 
-              _last_activity(time(NULL)), matched_location(NULL), 
-              _headers_sent(0), _body_sent(0), _is_response_ready(false) {}
+        Connection(int fd, const std::vector<Server>& servers, Logger_manager* _session_manager) 
+                        : _client_fd(fd), _possible_servers(servers), _session_manager(_session_manager), _matched_server(NULL),
+                            _last_activity(time(NULL)), matched_location(NULL), listen_port(0),
+                            _headers_sent(0), _body_sent(0), _is_response_ready(false) {}
 		int handleRequest();
         void updateActivity() { _last_activity = time(NULL); }
 		void readCgiOutput();

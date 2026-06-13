@@ -7,6 +7,7 @@
 #include "../inc/config/Tokenizer.hpp"
 #include "../inc/config/ConfigParser.hpp"
 #include "../inc/config/ConfigValidator.hpp"
+#include "../inc/utils/Logger.hpp"
 
 // Placeholder for the next phase
 #include "../inc/core/Webserv.hpp" 
@@ -61,8 +62,8 @@ int main(int argc, char **argv) {
         std::cout << "[INFO] (Placeholder) Server would now start listening..." << std::endl;
 		// 3. Set up signal handling for graceful shutdown
 		signal(SIGINT, handle_sigint);
-		
-		Webserv engine(servers);
+		Logger_manager session_manager;
+		Webserv engine(servers, session_manager);
 		engine.run(); // This will run until g_server_running becomes false (e.g., on SIGINT)
     } 
     catch (const std::exception& e) {

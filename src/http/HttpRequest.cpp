@@ -497,22 +497,37 @@ void HttpRequest::ShowBuff()
 }
 
 void HttpRequest::parseCookies(const std::string& cookie_header){
-	size_t pos = 0;
+    size_t pos = 0;
 
-	while (pos < cookie_header.length()){
-		size_t eq_pos = cookie_header.find('=', pos);
-		size_t semi_pos = cookie_header.find(';', pos);
+    while (pos < cookie_header.length()){
+        // Find the next semicolon
+        size_t semi_pos = cookie_header.find(';', pos);
+        
+        // IF there is no semicolon (last or only cookie), treat the end of the string as the boundary
+        if (semi_pos == std::string::npos) {
+            semi_pos = cookie_header.length();
+        }
 
-		if (eq_pos != std::string::npos && eq_pos < semi_pos){
-			std::string key = cookie_header.substr(pos, eq_pos - pos);
-			std::string value = cookie_header.substr(eq_pos + 1, semi_pos - eq_pos - 1);
-			size_t key_start = key.find_first_not_of(" \t");
+        // Find the equals sign
+        size_t eq_pos = cookie_header.find('=', pos);
+
+        // Only extract if the equals sign exists AND is before the semicolon
+        if (eq_pos != std::string::npos && eq_pos < semi_pos){
+            std::string key = cookie_header.substr(pos, eq_pos - pos);
+            std::string value = cookie_header.substr(eq_pos + 1, semi_pos - eq_pos - 1);
+            
+            // Clean up leading spaces from the key
+            size_t key_start = key.find_first_not_of(" \t");
             if (key_start != std::string::npos)
                 key = key.substr(key_start);
-			_cookies[key] = value;
-			pos = semi_pos + 1;
-		}
-	}
+                
+            _cookies[key] = value;
+        }
+        
+        // Safely advance 'pos' to the character right after the semicolon
+        // If we were at the end of the string, pos becomes length() + 1, which breaks the while loop safely!
+        pos = semi_pos + 1;
+    }
 }
 
 std::string HttpRequest::getCookie(const std::string& name) const{
