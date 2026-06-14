@@ -142,6 +142,16 @@ void Connection::handleGet(const Location& loc, std::string _path) {
         buildErrorResponse(400);
         return;
     }
+    // 2. THE NEW CHECK: Handle Configuration Redirects First!
+    if (!loc.redirect_url.empty()) {
+        _response.setStatusCode(loc.redirect_code);
+        _response.setHeader("Location", loc.redirect_url);
+        _response.setHeader("Content-Type", "text/html");
+        _response.setBody("<html><body><h1>" + to_string(loc.redirect_code) + " Redirect</h1></body></html>");
+        _header_buffer = _response.getHeadersAsString();
+        _is_response_ready = true;
+        return; 
+    }
     if (_request.getPath() == "/cookie") {
         std::string session_id = _request.getCookie("session_id");
         bool is_new_session = false;
