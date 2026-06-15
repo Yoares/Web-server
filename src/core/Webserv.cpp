@@ -323,7 +323,7 @@ Webserv::~Webserv()
 	}
 	connections.clear();
 
-	for (std::map<int, std::vector<Server>>::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
+	for (std::map<int, std::vector<Server> >::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
 	{
 		close(it->first);
 	}
