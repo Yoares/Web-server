@@ -31,47 +31,37 @@ void HttpRequest::parseChunkedBody()
 {
 	while (!buffer.empty() && state == READING_BODY)
 	{
-		// STATE 0: Read the Hex Size
 		if (_chunk_state == 0)
 		{
 			size_t pos = buffer.find("\r\n");
 			if (pos == std::string::npos)
 			{
-				// Protect against malicious infinite strings without \r\n
 				if (buffer.length() > 100)
 				{
 					_error_code = 400;
 					state = ERROR;
 				}
-				return; // Wait for more data
+				return;
 			}
 
 			std::string hex_str = buffer.substr(0, pos);
-
-			// Clean up optional chunk extensions (e.g., "A;ext=1\r\n")
 			size_t semi_pos = hex_str.find(';');
 			if (semi_pos != std::string::npos)
 				hex_str = hex_str.substr(0, semi_pos);
-
-			// Convert hex string to integer
 			char *end;
 			long val = std::strtol(hex_str.c_str(), &end, 16);
 			if (end == hex_str.c_str() || (*end != '\0' && *end != ' ' && *end != '\t'))
 			{
 				_error_code = 400;
 				state = ERROR;
-				return; // Bad hex format
+				return;
 			}
-
 			_chunk_bytes_left = val;
 			if (_chunk_bytes_left == 0)
 				_is_last_chunk = true;
-
-			buffer.erase(0, pos + 2); // Remove the size line and \r\n from RAM
-
-			_chunk_state = (_chunk_bytes_left == 0) ? 2 : 1; // If 0, go to Trailer. Else, Data.
+			buffer.erase(0, pos + 2);
+			_chunk_state = (_chunk_bytes_left == 0) ? 2 : 1;
 		}
-		// STATE 1: Stream the Data directly to Disk
 		else if (_chunk_state == 1)
 		{
 			size_t to_write = std::min(buffer.length(), _chunk_bytes_left);
@@ -84,48 +74,37 @@ void HttpRequest::parseChunkedBody()
 					state = ERROR;
 					return;
 				}
-
 				file.write(buffer.c_str(), to_write);
 				file.close();
-
 				buffer.erase(0, to_write);
 				_chunk_bytes_left -= to_write;
-				content_length += to_write; // Increment total known size dynamically!
+				content_length += to_write;
 			}
-
 			if (_chunk_bytes_left == 0)
-			{
-				_chunk_state = 2; // Data finished, wait for trailing \r\n
-			}
+				_chunk_state = 2;
 			else
-			{
-				return; // Socket chunk ended, wait for next EPOLLIN to get more data
-			}
+				return;
 		}
-		// STATE 2: Consume the trailing \r\n
 		else if (_chunk_state == 2)
 		{
 			if (buffer.length() < 2)
-				return; // Wait for full \r\n
-
+				return;
 			if (buffer[0] == '\r' && buffer[1] == '\n')
 			{
 				buffer.erase(0, 2);
 				if (_is_last_chunk)
 				{
-					state = COMPLETE; // We finished decoding the entire stream!
+					state = COMPLETE;
 					return;
 				}
 				else
-				{
-					_chunk_state = 0; // Loop back around to read the next chunk size
-				}
+					_chunk_state = 0;
 			}
 			else
 			{
 				_error_code = 400;
 				state = ERROR;
-				return; // Protocol violation
+				return;
 			}
 		}
 	}
@@ -167,7 +146,7 @@ void HttpRequest::setHeaderName(size_t start, size_t end, std::string &header_na
 	if (header_name.empty())
 	{
 		state = ERROR;
-		_error_code = 400; // Bad Request
+		_error_code = 400;
 		headers.clear();
 		std::cout << "Header parsing error: Empty header name." << std::endl;
 		return;
@@ -243,10 +222,9 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 			found_content_length = true;
 		}
 		else if (header_name == "cookie")
-        {
-            parseCookies(header_value.c_str());
-        }
-		// --- ADD THIS BLOCK ---
+		{
+			parseCookies(header_value.c_str());
+		}
 		else if (header_name == "transfer-encoding" && header_value == "chunked")
 		{
 			_is_chunked = true;
@@ -355,7 +333,7 @@ void HttpRequest::parseHeaders()
 		if (_is_chunked && found_content_length)
 		{
 			found_content_length = false;
-			content_length = 0; 
+			content_length = 0;
 		}
 		if (method == POST && found_content_length == false && _is_chunked == false)
 		{
@@ -383,42 +361,21 @@ void HttpRequest::parse()
 	if (state == READING_HEADERS)
 		parseHeaders();
 	if (state == HEADERS_COMPLETE && method == POST && content_length == 0 && !_is_chunked)
-	{
-		state = COMPLETE; // No body to read, we're done!
-	}
-	if (state == ERROR)
-	{
-		std::cerr << "Error parsing request. Current buffer content:" << std::endl;
-		std::cerr << "---" << std::endl;
-		std::cerr << buffer;
-		std::cerr << "---" << std::endl;
-	}
-	if (state == COMPLETE)
-	{
-		std::cout << "Request parsing complete. Final buffer content:" << std::endl;
-		std::cout << "---" << std::endl;
-		std::cout << buffer;
-		std::cout << "---" << std::endl;
-	}
+		state = COMPLETE;
 }
+
 void HttpRequest::startBodyParsing()
 {
 	state = READING_BODY;
 
 	buffer.erase(0, body_start_pos);
 	if (_is_chunked)
-	{
-		parseChunkedBody(); // Process any chunk data already caught in the buffer
-	}
+		parseChunkedBody();
 	else
 	{
-		// --- Standard Content-Length Logic ---
 		size_t leftover_len = buffer.size();
 		if (_body_bytes_read + leftover_len > content_length)
-		{
 			leftover_len = content_length - _body_bytes_read;
-		}
-
 		std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
 		if (file.is_open())
 		{
@@ -433,7 +390,6 @@ void HttpRequest::startBodyParsing()
 		}
 		_body_bytes_read += leftover_len;
 		buffer.erase(0, leftover_len);
-
 		if (_body_bytes_read >= content_length)
 			state = COMPLETE;
 	}
@@ -459,19 +415,14 @@ void HttpRequest::append(const char *buff, int size)
 	{
 		if (_is_chunked)
 		{
-			buffer.append(buff, size); // Must buffer temporarily to find Hex sizes
+			buffer.append(buff, size);
 			parseChunkedBody();
 		}
 		else
 		{
-			// Strictly in body phase, stream directly to disk
 			size_t bytes_to_write = size;
-
 			if (_body_bytes_read + bytes_to_write > content_length)
-			{
 				bytes_to_write = content_length - _body_bytes_read;
-			}
-
 			std::ofstream file(_temp_filename.c_str(), std::ios::binary | std::ios::app);
 			if (file.is_open())
 			{
@@ -486,7 +437,6 @@ void HttpRequest::append(const char *buff, int size)
 				std::cerr << "Failed to open temp file for body stream." << std::endl;
 				return;
 			}
-
 			if (_body_bytes_read >= content_length)
 			{
 				state = COMPLETE;
@@ -501,44 +451,34 @@ void HttpRequest::ShowBuff()
 	std::cout << buffer;
 }
 
-void HttpRequest::parseCookies(const std::string& cookie_header){
-    size_t pos = 0;
-
-    while (pos < cookie_header.length()){
-        // Find the next semicolon
-        size_t semi_pos = cookie_header.find(';', pos);
-        
-        // IF there is no semicolon (last or only cookie), treat the end of the string as the boundary
-        if (semi_pos == std::string::npos) {
-            semi_pos = cookie_header.length();
-        }
-
-        // Find the equals sign
-        size_t eq_pos = cookie_header.find('=', pos);
-
-        // Only extract if the equals sign exists AND is before the semicolon
-        if (eq_pos != std::string::npos && eq_pos < semi_pos){
-            std::string key = cookie_header.substr(pos, eq_pos - pos);
-            std::string value = cookie_header.substr(eq_pos + 1, semi_pos - eq_pos - 1);
-            
-            // Clean up leading spaces from the key
-            size_t key_start = key.find_first_not_of(" \t");
-            if (key_start != std::string::npos)
-                key = key.substr(key_start);
-                
-            _cookies[key] = value;
-        }
-        
-        // Safely advance 'pos' to the character right after the semicolon
-        // If we were at the end of the string, pos becomes length() + 1, which breaks the while loop safely!
-        pos = semi_pos + 1;
-    }
+void HttpRequest::parseCookies(const std::string &cookie_header)
+{
+	size_t pos = 0;
+	while (pos < cookie_header.length())
+	{
+		size_t semi_pos = cookie_header.find(';', pos);
+		if (semi_pos == std::string::npos)
+			semi_pos = cookie_header.length();
+		size_t eq_pos = cookie_header.find('=', pos);
+		if (eq_pos != std::string::npos && eq_pos < semi_pos)
+		{
+			std::string key = cookie_header.substr(pos, eq_pos - pos);
+			std::string value = cookie_header.substr(eq_pos + 1, semi_pos - eq_pos - 1);
+			size_t key_start = key.find_first_not_of(" \t");
+			if (key_start != std::string::npos)
+				key = key.substr(key_start);
+			_cookies[key] = value;
+		}
+		pos = semi_pos + 1;
+	}
 }
 
-std::string HttpRequest::getCookie(const std::string& name) const{
+std::string HttpRequest::getCookie(const std::string &name) const
+{
 
 	std::map<std::string, std::string>::const_iterator it = _cookies.find(name);
-	if (it != _cookies.end()){
+	if (it != _cookies.end())
+	{
 		return it->second;
 	}
 	return "";
