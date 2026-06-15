@@ -2,7 +2,7 @@
 
 extern bool g_server_running;
 
-Webserv::Webserv(const std::vector<Server> &servers,  Logger_manager& _session_manager) : epollFd(-1), _session_manager(_session_manager)
+Webserv::Webserv(const std::vector<Server> &servers, Logger_manager &_session_manager) : epollFd(-1), _session_manager(_session_manager)
 {
 	std::cout << "[INFO] Initializing Webserv..." << std::endl;
 
@@ -118,52 +118,35 @@ std::vector<epoll_event> Webserv::waitforEvents()
 void Webserv::checkTimeouts()
 {
 	time_t current_time = time(NULL);
-	const int TIMEOUT_LIMIT = 60;        // Idle client timeout
-	const int CGI_TIMEOUT_LIMIT = 500;     // Maximum seconds a CGI script is allowed to run
+	const int TIMEOUT_LIMIT = 60;
+	const int CGI_TIMEOUT_LIMIT = 500;
 
 	std::map<int, Connection>::iterator it = connections.begin();
 	while (it != connections.end())
 	{
 		Connection &conn = it->second;
-
-		// ==========================================
-		// 1. CGI TIMEOUT CHECK
-		// ==========================================
 		if (conn._cgi.getState() == CGI_RUNNING)
 		{
-			// Your existing checkTimeout function kills the process if it exceeds the limit!
-			if (conn._cgi.checkTimeout(CGI_TIMEOUT_LIMIT)) 
+			if (conn._cgi.checkTimeout(CGI_TIMEOUT_LIMIT))
 			{
 				std::cout << "[INFO] CGI Timeout triggered for client FD: " << it->first << std::endl;
-
-				// CRITICAL: Remove the dead CGI pipe from epoll so it doesn't infinite loop
 				epoll_ctl(epollFd, EPOLL_CTL_DEL, conn._cgi.getStdoutFd(), NULL);
-
-				// Prepare the 504 Gateway Timeout HTML response
 				conn.handleCgiTimeout();
-
-				// Modify the client's socket to EPOLLOUT so epoll knows to send the error
 				struct epoll_event ev;
 				std::memset(&ev, 0, sizeof(ev));
 				ev.events = EPOLLOUT;
 				ev.data.fd = it->first;
-				if (epoll_ctl(epollFd, EPOLL_CTL_MOD, it->first, &ev) == -1) {
+				if (epoll_ctl(epollFd, EPOLL_CTL_MOD, it->first, &ev) == -1)
+				{
 					std::cerr << "[ERROR] Failed to modify epoll to EPOLLOUT after CGI timeout" << std::endl;
 				}
-
 				it++;
-				continue; // Skip the regular timeout check for this loop iteration
+				continue;
 			}
 		}
-
-		// ==========================================
-		// 2. EXISTING CLIENT IDLE TIMEOUT CHECK
-		// ==========================================
 		if (current_time - conn.getLastActivity() > TIMEOUT_LIMIT)
 		{
 			std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
-
-			// Clean up sockets
 			epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
 			close(it->first);
 
@@ -172,9 +155,7 @@ void Webserv::checkTimeouts()
 			connections.erase(temp);
 		}
 		else
-		{
 			it++;
-		}
 	}
 	_session_manager.cleanupExpiredSessions();
 }
@@ -288,28 +269,13 @@ void Webserv::handleConnections(const std::vector<epoll_event> &events)
 			if (found)
 			{
 				Connection &conn = cgi_it->second;
-				// if (events[i].events & EPOLLERR)
-				// {
-				// 	std::cout << "[INFO] CGI process ended unexpectedly for client FD: " << cgi_it->first << std::endl;
-				// 	conn._cgi.killProcess();
-				// 	epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL);
-				// 	conn.buildErrorResponse(500);
-				// 	struct epoll_event ev;
-				// 	std::memset(&ev, 0, sizeof(ev));
-				// 	ev.events = EPOLLOUT;
-				// 	ev.data.fd = cgi_it->first;
-				// 	if (epoll_ctl(epollFd, EPOLL_CTL_MOD, cgi_it->first, &ev) == -1)
-				// 	{
-				// 		throw std::runtime_error("Error modifying epoll to EPOLLOUT after CGI completion");
-				// 	}
-				// 	continue;
-				// }
 				if (events[i].events & (EPOLLIN | EPOLLHUP | EPOLLERR))
 				{
 					conn.readCgiOutput();
 					if (conn.isResponseReady())
 					{
-						if (epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL) == -1) {
+						if (epoll_ctl(epollFd, EPOLL_CTL_DEL, events[i].data.fd, NULL) == -1)
+						{
 							std::cerr << "[ERROR] Failed to remove CGI FD from epoll." << std::endl;
 						}
 						struct epoll_event ev;
@@ -357,7 +323,7 @@ Webserv::~Webserv()
 	}
 	connections.clear();
 
-	for (std::map<int, std::vector<Server> >::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
+	for (std::map<int, std::vector<Server>>::iterator it = fdToServers.begin(); it != fdToServers.end(); ++it)
 	{
 		close(it->first);
 	}
