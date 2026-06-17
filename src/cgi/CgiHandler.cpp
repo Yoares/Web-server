@@ -34,11 +34,18 @@ CgiHandler::~CgiHandler()
 		killProcess();
 		waitpid(_pid, NULL, 0);
 	}
+	if (!_output_file.empty())
+		std::remove(_output_file.c_str());
 }
 
 bool CgiHandler::execute(const std::vector<std::string> &envp_vec)
 {
 	if (pipe(_stdout_pipe) == -1)
+	{
+		_state = CGI_ERROR;
+		return false;
+	}
+	if (access(_cgi_bin.c_str(), X_OK) == -1)
 	{
 		_state = CGI_ERROR;
 		return false;

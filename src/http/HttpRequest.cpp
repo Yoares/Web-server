@@ -213,12 +213,31 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 		headers[header_name] = header_value;
 		if (header_name == "host")
 		{
+			if (found_host)
+			{
+				state = ERROR;
+				_error_code = 400;
+				return;
+			}
 			Host = header_value;
 			found_host = true;
 		}
 		else if (header_name == "content-length")
 		{
-			content_length = std::atol(header_value.c_str());
+			if (found_content_length || _is_chunked)
+			{
+				state = ERROR;
+				_error_code = 400;
+				return;
+			}
+			char *endp;
+			content_length = std::strtol(header_value.c_str(), &endp, 10);
+			if (*endp != '\0' || errno == ERANGE || content_length < 0 || endp == header_value.c_str())
+			{
+				state = ERROR;
+				_error_code = 400;
+				return;
+			}
 			found_content_length = true;
 		}
 		else if (header_name == "cookie")
@@ -228,6 +247,18 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 		else if (header_name == "transfer-encoding" && header_value == "chunked")
 		{
 			_is_chunked = true;
+			if (found_content_length)
+			{
+				state = ERROR;
+				_error_code = 400;
+				return;
+			}
+		}
+		else if (header_name == "transfer-encoding" && header_value != "chunked")
+		{
+			state = ERROR;
+			_error_code = 501;
+			return;
 		}
 		i = header_end + 2;
 	}
@@ -253,7 +284,7 @@ void HttpRequest::loadPathAndQuery()
 	{
 		query_string = "";
 	}
-	path = buffer.substr(offset_, path_end - offset_);
+	path = decodeURI(buffer.substr(offset_, path_end - offset_));
 	offset_ = path_end + 1;
 }
 
@@ -404,9 +435,11 @@ void HttpRequest::append(const char *buff, int size)
 		buffer.append(buff, size);
 		if (buffer.size() > 8192 && state != HEADERS_COMPLETE)
 		{
+			if (state == READING_REQUEST_LINE)
+				_error_code = 414;
+			else
+				_error_code = 431;
 			state = ERROR;
-			_error_code = 431;
-			std::cerr << "[ERROR] 431 Request Header Fields Too Large" << std::endl;
 			return;
 		}
 		parse();

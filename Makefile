@@ -22,7 +22,7 @@ CONF_SRCS   = config/ServerBlock.cpp config/LocationBlock.cpp \
               config/Tokenizer.cpp config/ConfigParser.cpp config/ConfigValidator.cpp
 HTTP_SRCS   = http/HttpRequest.cpp http/HttpResponse.cpp
 CGI_SRCS    = cgi/CgiHandler.cpp
-UTIL_SRCS   = utils/MimeTypes.cpp utils/Logger.cpp 
+UTIL_SRCS   = utils/MimeTypes.cpp utils/Logger.cpp utils/Helpers.cpp
 
 # Combine all sources
 SRCS_FILES  = $(MAIN_SRC) $(CORE_SRCS) $(CONF_SRCS) $(HTTP_SRCS) $(CGI_SRCS) $(UTIL_SRCS)

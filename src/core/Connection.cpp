@@ -22,6 +22,17 @@ void Connection::handlePost(const Location &loc, std::string _path)
 void Connection::buildErrorResponse(int code)
 {
 	_response.buildErrorResponse(code, _matched_server->error_pages);
+	if (code == 405)
+	{
+		std::string allowed_methods;
+		for (size_t i = 0; i < matched_location->allowed_methods.size(); ++i)
+		{
+			if (i > 0)
+				allowed_methods += ", ";
+			allowed_methods += matched_location->allowed_methods[i];
+		}
+		_response.setHeader("Allow", allowed_methods);
+	}
 	_header_buffer = _response.getHeadersAsString();
 	_is_response_ready = true;
 }

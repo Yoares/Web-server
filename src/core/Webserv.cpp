@@ -119,7 +119,7 @@ void Webserv::checkTimeouts()
 {
 	time_t current_time = time(NULL);
 	const int TIMEOUT_LIMIT = 60;
-	const int CGI_TIMEOUT_LIMIT = 500;
+	const int CGI_TIMEOUT_LIMIT = 5;
 
 	std::map<int, Connection>::iterator it = connections.begin();
 	while (it != connections.end())

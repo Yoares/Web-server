@@ -54,8 +54,9 @@ static bool readFile(int fd, std::string &content){
 }
 
 void Connection::handleDirectory(const std::string& path, const Location& loc){
-
+	std::cout << "Handling directory: " << path << std::endl; // Debugging line
     if (!loc.index.empty()){
+		std::cout << "Checking for index file: " << loc.index << std::endl; // Debugging line
         std::string index_path = path;
         if (index_path[index_path.length() - 1] != '/'){
             index_path += "/";
@@ -79,9 +80,12 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
         struct dirent* entry;
         while ((entry = readdir(dir)) != NULL)
         {
-            body += "<li>";
+			std::cout << "Entry: " << entry->d_name << std::endl; // Debugging line
+            body += "<li><a href=\"/";
+			body += encodeURI(entry->d_name);
+            body += "\">";
             body += entry->d_name;
-            body += "</li>";
+            body += "</a></li>";
         }
 
         body += "</ul></body></html>";

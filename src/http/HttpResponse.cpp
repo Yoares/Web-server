@@ -61,6 +61,14 @@ std::string HttpResponse::getReasonPhrase(int code) const
 		return "Moved Permanently";
 	case 403:
 		return "Forbidden";
+	case 504:
+		return "Gateway Timeout";
+	case 405:
+		return "Method Not Allowed";
+	case 414:
+		return "URI Too Long";
+	case 204:
+		return "No Content";
 	default:
 		return "Unknown Error";
 	}

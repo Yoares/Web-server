@@ -13,6 +13,7 @@
 #include <netinet/in.h> // For struct sockaddr_in
 #include <arpa/inet.h>
 #include "../utils/Logger.hpp"
+#include <unistd.h> // For close()
 
 class Logger_manager;
 
