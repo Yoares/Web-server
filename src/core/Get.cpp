@@ -79,8 +79,7 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
 
         struct dirent* entry;
         while ((entry = readdir(dir)) != NULL)
-        {
-			std::cout << "Entry: " << entry->d_name << std::endl; // Debugging line
+        {			
             body += "<li><a href=\"/";
 			body += encodeURI(entry->d_name);
             body += "\">";

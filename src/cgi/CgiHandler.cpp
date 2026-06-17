@@ -44,19 +44,7 @@ bool CgiHandler::execute(const std::vector<std::string> &envp_vec)
 	{
 		_state = CGI_ERROR;
 		return false;
-	}
-	if (access(_cgi_bin.c_str(), X_OK) == -1)
-	{
-		_state = CGI_ERROR;
-		return false;
-	}
-	char resolved_script[4096];
-	if (realpath(_script_path.c_str(), resolved_script) != NULL)
-		_script_path = resolved_script;
-	char resolved_bin[4096];
-	if (realpath(_cgi_bin.c_str(), resolved_bin) != NULL)
-		_cgi_bin = resolved_bin;
-	fcntl(_stdout_pipe[0], F_SETFL, O_NONBLOCK, FD_CLOEXEC);
+	}	
 	_start_time = std::time(NULL);
 	_pid = fork();
 	if (_pid == -1)
@@ -88,15 +76,18 @@ bool CgiHandler::execute(const std::vector<std::string> &envp_vec)
 		close(_stdout_pipe[0]);
 		close(_stdout_pipe[1]);
 		std::vector<std::string> args;
+		std::string script_name = _script_path.substr(_script_path.find_last_of('/') + 1);
 		args.push_back(_cgi_bin);
-		args.push_back(_script_path);
+		args.push_back(script_name);
 		char **argv = _vecToCharArray(args);
 		char **envp = _vecToCharArray(envp_vec);
 		std::string script_dir = _script_path.substr(0, _script_path.find_last_of('/'));
 		if (!script_dir.empty())
 			chdir(script_dir.c_str());
 		execve(_cgi_bin.c_str(), argv, envp);
-		exit(1);
+		_freeCharArray(argv);
+		_freeCharArray(envp);
+		std::exit(1);
 	}
 	close(_stdout_pipe[1]);
 	_stdout_pipe[1] = -1;
@@ -116,7 +107,7 @@ bool CgiHandler::readOutputNonBlocking()
 
 	char buffer[4096];
 	ssize_t bytes_read = read(_stdout_pipe[0], buffer, sizeof(buffer));
-
+	buffer[bytes_read] = '\0';
 	if (bytes_read > 0)
 	{
 		if (_output_state == OUTPUT_READING_HEADERS)

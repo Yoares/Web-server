@@ -148,7 +148,6 @@ void HttpRequest::setHeaderName(size_t start, size_t end, std::string &header_na
 		state = ERROR;
 		_error_code = 400;
 		headers.clear();
-		std::cout << "Header parsing error: Empty header name." << std::endl;
 		return;
 	}
 	for (size_t i = 0; i < header_name.length(); i++)
@@ -158,7 +157,6 @@ void HttpRequest::setHeaderName(size_t start, size_t end, std::string &header_na
 			state = ERROR;
 			_error_code = 400;
 			headers.clear();
-			std::cout << "Header parsing error: Invalid character in header name. \'" << header_name[i] << "\'" << std::endl;
 			return;
 		}
 		header_name[i] = std::tolower(header_name[i]);
@@ -179,7 +177,6 @@ void HttpRequest::setHeaderValue(size_t start, size_t end, std::string &header_v
 			state = ERROR;
 			_error_code = 400;
 			headers.clear();
-			std::cout << "Header parsing error: Invalid character in header value." << std::endl;
 			return;
 		}
 	}
@@ -199,7 +196,6 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 			state = ERROR;
 			_error_code = 400;
 			headers.clear();
-			std::cout << "Header parsing error: No colon found in header line." << std::endl;
 			return;
 		}
 		std::string header_name;
@@ -266,26 +262,34 @@ void HttpRequest::loadHeaders(size_t start, size_t end)
 
 void HttpRequest::loadPathAndQuery()
 {
-	size_t path_end = buffer.find(' ', offset_);
-	size_t query_pos = buffer.find('?', offset_);
-	if (query_pos != std::string::npos && path_end != std::string::npos && query_pos < path_end)
+	size_t line_end = buffer.find("\r\n", offset_);
+	size_t path_end = buffer.find('?', offset_);
+	if (path_end == std::string::npos || path_end > line_end)
 	{
-		query_string = buffer.substr(query_pos + 1, path_end - query_pos - 1);
-		path_end = query_pos;
-	}
-	if (path_end == std::string::npos)
-	{
-		http_version_valid = false;
-		state = ERROR;
-		_error_code = 400;
-		return;
-	}
-	if (query_pos == std::string::npos)
-	{
+		path_end = buffer.find(' ', offset_);
+		if (path_end == std::string::npos || path_end > line_end)
+		{
+			state = ERROR;
+			_error_code = 400;
+			return;
+		}
+		path = buffer.substr(offset_, path_end - offset_);
 		query_string = "";
+		offset_ = path_end + 1;
 	}
-	path = decodeURI(buffer.substr(offset_, path_end - offset_));
-	offset_ = path_end + 1;
+	else
+	{
+		path = buffer.substr(offset_, path_end - offset_);
+		size_t query_end = buffer.find(' ', path_end);
+		if (query_end == std::string::npos || query_end > line_end)
+		{
+			state = ERROR;
+			_error_code = 400;
+			return;
+		}
+		query_string = buffer.substr(path_end + 1, query_end - path_end - 1);
+		offset_ = query_end + 1;
+	}
 }
 
 void HttpRequest::checkHttpVersion()
@@ -370,7 +374,6 @@ void HttpRequest::parseHeaders()
 		{
 			state = ERROR;
 			_error_code = 411;
-			std::cerr << "[ERROR] 411 Length Required (Chunked Encoding not supported)" << std::endl;
 			return;
 		}
 		if (method == GET || method == DELETE || method == HEAD)
