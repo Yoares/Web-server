@@ -239,7 +239,7 @@ bool PostHandler::processMultipart(const std::string &temp_file, const std::stri
             if (!headers_parsed)
             {
                 std::string header_end_str = "\r\n\r\n";
-                std::vector<char>::iterator    header_end = std::search(buffer.begin(), buffer.end(), header_end_str.begin(), header_end_str.end());
+                std::vector<char>::iterator header_end = std::search(buffer.begin(), buffer.end(), header_end_str.begin(), header_end_str.end());
 
                 if (header_end != buffer.end())
                 {
@@ -373,7 +373,6 @@ void PostHandler::execute(std::string path)
         return;
 
     std::vector<std::string> uploaded_files;
-
     if (isMultipart())
     {
         std::map<std::string, std::string> headers = _request.getHeaders();
