@@ -4,12 +4,14 @@
 #include <stdexcept>
 #include <cctype>
 
-std::vector<std::string> Tokenizer::tokenize(const std::string& filename){
+std::vector<std::string> Tokenizer::tokenize(const std::string &filename)
+{
     std::vector<std::string> tokens;
 
     std::ifstream file(filename.c_str());
 
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         throw std::runtime_error("Error: Could not open config file: " + filename);
     }
 
@@ -22,14 +24,15 @@ std::vector<std::string> Tokenizer::tokenize(const std::string& filename){
 
     while (i < content.length())
     {
-        if (std::isspace(content[i])){
+        if (std::isspace(content[i]))
+        {
             i++;
             continue;
         }
 
         if (content[i] == '#')
         {
-            while(i < content.length() && content[i] != '\n')
+            while (i < content.length() && content[i] != '\n')
                 i++;
             continue;
         }
@@ -41,12 +44,11 @@ std::vector<std::string> Tokenizer::tokenize(const std::string& filename){
             continue;
         }
         size_t start = i;
-        while(i < content.length() && !std::isspace(content[i]) && content[i] != '{' && content[i] != '}' && content[i] != ';' && content[i] != '#')
+        while (i < content.length() && !std::isspace(content[i]) && content[i] != '{' && content[i] != '}' && content[i] != ';' && content[i] != '#')
         {
             i++;
-        } 
+        }
 
-        // Push the extracted word into our vector
         tokens.push_back(content.substr(start, i - start));
     }
     return tokens;

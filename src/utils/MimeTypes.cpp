@@ -1,6 +1,6 @@
 #include "../../inc/utils/MimeTypes.hpp"
 
-std::string MimeTypes::getMimeType(const std::string& path)
+std::string MimeTypes::getMimeType(const std::string &path)
 {
     std::string::size_type dot = path.find_last_of('.');
 

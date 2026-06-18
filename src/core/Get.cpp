@@ -7,7 +7,8 @@
 #include <dirent.h>
 #include <fcntl.h>
 
-std::string Connection::resolvePhysicalPath(const std::string& request_uri, const Location& loc) {
+std::string Connection::resolvePhysicalPath(const std::string &request_uri, const Location &loc)
+{
     std::string _path;
     std::string root;
 
@@ -19,33 +20,40 @@ std::string Connection::resolvePhysicalPath(const std::string& request_uri, cons
     if (request_uri.find("..") != std::string::npos)
         return "";
 
-    // --- ALIAS BEHAVIOR: Strip the location path from the URI ---
     std::string clean_uri = request_uri;
-    if (!loc.path.empty() && request_uri.find(loc.path) == 0) {
+    if (!loc.path.empty() && request_uri.find(loc.path) == 0)
+    {
         clean_uri = request_uri.substr(loc.path.length());
-        if (clean_uri.empty() || clean_uri[0] != '/') {
+        if (clean_uri.empty() || clean_uri[0] != '/')
+        {
             clean_uri = "/" + clean_uri;
         }
     }
 
-    // Prevent double slashes when joining
-    if (root[root.length() - 1] == '/' && clean_uri[0] == '/') {
+    if (root[root.length() - 1] == '/' && clean_uri[0] == '/')
+    {
         _path = root + clean_uri.substr(1);
-    } else if (root[root.length() - 1] != '/' && clean_uri[0] != '/') {
+    }
+    else if (root[root.length() - 1] != '/' && clean_uri[0] != '/')
+    {
         _path = root + "/" + clean_uri;
-    } else {
+    }
+    else
+    {
         _path = root + clean_uri;
     }
 
     return _path;
 }
 
-static bool readFile(int fd, std::string &content){
+static bool readFile(int fd, std::string &content)
+{
 
     char buffer[4096];
     ssize_t bytesRead;
 
-    while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0){
+    while ((bytesRead = read(fd, buffer, sizeof(buffer))) > 0)
+    {
         content.append(buffer, bytesRead);
     }
     if (bytesRead == -1)
@@ -53,35 +61,40 @@ static bool readFile(int fd, std::string &content){
     return true;
 }
 
-void Connection::handleDirectory(const std::string& path, const Location& loc){
-	std::cout << "Handling directory: " << path << std::endl; // Debugging line
-    if (!loc.index.empty()){
-		std::cout << "Checking for index file: " << loc.index << std::endl; // Debugging line
+void Connection::handleDirectory(const std::string &path, const Location &loc)
+{
+
+    if (!loc.index.empty())
+    {
         std::string index_path = path;
-        if (index_path[index_path.length() - 1] != '/'){
+        if (index_path[index_path.length() - 1] != '/')
+        {
             index_path += "/";
         }
         index_path += loc.index;
-        struct  stat st;
-        if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode)){
+        struct stat st;
+        if (stat(index_path.c_str(), &st) == 0 && S_ISREG(st.st_mode))
+        {
             serveFile(index_path);
             return;
         }
     }
-    if (loc.autoindex){
+    if (loc.autoindex)
+    {
         DIR *dir = opendir(path.c_str());
-        if (dir == NULL){
+        if (dir == NULL)
+        {
             buildErrorResponse(500);
             return;
         }
         std::string body;
         body += "<html><body><ul>";
 
-        struct dirent* entry;
+        struct dirent *entry;
         while ((entry = readdir(dir)) != NULL)
-        {			
+        {
             body += "<li><a href=\"/";
-			body += encodeURI(entry->d_name);
+            body += encodeURI(entry->d_name);
             body += "\">";
             body += entry->d_name;
             body += "</a></li>";
@@ -98,14 +111,15 @@ void Connection::handleDirectory(const std::string& path, const Location& loc){
         _is_response_ready = true;
         return;
     }
-    else { //this if the autoindex is off
+    else
+    {
         buildErrorResponse(404);
         return;
     }
-    
 }
 
-void Connection::serveFile(const std::string& _path) {
+void Connection::serveFile(const std::string &_path)
+{
 
     if (access(_path.c_str(), R_OK) == -1)
     {
@@ -138,39 +152,46 @@ void Connection::serveFile(const std::string& _path) {
     return;
 }
 
-void Connection::handleGet(const Location& loc, std::string _path) {
+void Connection::handleGet(const Location &loc, std::string _path)
+{
 
     if (_path.empty() || _request.getPath().find("..") != std::string::npos)
     {
         buildErrorResponse(400);
         return;
     }
-    // 2. THE NEW CHECK: Handle Configuration Redirects First!
-    if (!loc.redirect_url.empty()) {
+
+    if (!loc.redirect_url.empty())
+    {
         _response.setStatusCode(loc.redirect_code);
         _response.setHeader("Location", loc.redirect_url);
         _response.setHeader("Content-Type", "text/html");
         _response.setBody("<html><body><h1>" + to_string(loc.redirect_code) + " Redirect</h1></body></html>");
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
-        return; 
+        return;
     }
-    if (_request.getPath() == "/cookie") {
+    if (_request.getPath() == "/cookie")
+    {
         std::string session_id = _request.getCookie("session_id");
         bool is_new_session = false;
 
-        if (!_session_manager->isValidSession(session_id)) {
+        if (!_session_manager->isValidSession(session_id))
+        {
             session_id = _session_manager->createSession();
             is_new_session = true;
-        } else {
+        }
+        else
+        {
             _session_manager->updateSession(session_id);
         }
 
         _session_manager->incrementVisitCount(session_id);
         int visits = _session_manager->getVisitCount(session_id);
-        
-        if (is_new_session) {
-            _response.setCookie("session_id", session_id, 3600); 
+
+        if (is_new_session)
+        {
+            _response.setCookie("session_id", session_id, 3600);
         }
 
         std::string html = "<html><head><title>Cookie Test</title><meta charset='utf-8'></head>";
@@ -184,50 +205,52 @@ void Connection::handleGet(const Location& loc, std::string _path) {
         _response.setStatusCode(200);
         _response.setHeader("Content-Type", "text/html");
         _response.setHeader("Content-Length", to_string(html.length()));
-        _response.setBody(html); 
-        
+        _response.setBody(html);
+
         _header_buffer = _response.getHeadersAsString();
         _is_response_ready = true;
-        return; // We return immediately, skipping the physical file checks!
+        return;
     }
     struct stat lst;
-    if (lstat(_path.c_str(), &lst) == -1) // symlinks protection
-    {   
-        if(errno == ENOENT)
+    if (lstat(_path.c_str(), &lst) == -1)
+    {
+        if (errno == ENOENT)
             buildErrorResponse(404);
         else if (errno == EACCES)
             buildErrorResponse(403);
         else
             buildErrorResponse(500);
-        return ;
+        return;
     }
 
-    if (S_ISLNK(lst.st_mode)){
-         buildErrorResponse(403);
-        return ;
+    if (S_ISLNK(lst.st_mode))
+    {
+        buildErrorResponse(403);
+        return;
     }
     struct stat st;
-    if (stat(_path.c_str(), &st) == -1){
-        if(errno == ENOENT)
+    if (stat(_path.c_str(), &st) == -1)
+    {
+        if (errno == ENOENT)
             buildErrorResponse(404);
         else if (errno == EACCES)
             buildErrorResponse(403);
         else
             buildErrorResponse(500);
-        return ;
+        return;
     }
 
-    // Directory handling
     if (S_ISDIR(st.st_mode))
     {
-		std::string req_path = _request.getPath();
-        if (!req_path.empty() && req_path[req_path.length() - 1] != '/') {
+        std::string req_path = _request.getPath();
+        if (!req_path.empty() && req_path[req_path.length() - 1] != '/')
+        {
             _response.setStatusCode(301);
             _response.setHeader("Location", req_path + "/");
             _response.setHeader("Content-Type", "text/html");
-			_response.setHeader("Connection", "close");
+            _response.setHeader("Connection", "close");
             _response.setBody("<html><body><h1>301 Moved Permanently</h1></body></html>");
-            
+
             _header_buffer = _response.getHeadersAsString();
             _is_response_ready = true;
             return;
@@ -235,8 +258,7 @@ void Connection::handleGet(const Location& loc, std::string _path) {
         handleDirectory(_path, loc);
         return;
     }
-    
-    // Only regular files allowed
+
     if (!S_ISREG(st.st_mode))
     {
         buildErrorResponse(403);
