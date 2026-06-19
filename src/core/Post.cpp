@@ -5,6 +5,19 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sstream>
+#include <sys/time.h>
+
+static std::string generateUniqueFilename(const std::string &baseName)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    std::ostringstream oss;
+
+    oss << tv.tv_sec << "_" << tv.tv_usec << "_" << baseName; 
+    
+    return oss.str();
+}
 
 void PostHandler::buildSuccessResponse(const std::vector<std::string> &finalNames, bool isRaw)
 {
@@ -217,125 +230,15 @@ bool PostHandler::processMultipart(const std::string &temp_file, const std::stri
     std::vector<char> buffer;
     char chunk[4096];
 
-    // --- STATE VARIABLES ---
     bool headers_parsed = false;
-    bool is_file = false; // Tracks if the current chunk is a file or just a text field
+    bool is_file = false;
     std::ofstream outfile;
     std::string filename = "";
 
-    while (infile.read(chunk, sizeof(chunk)) || infile.gcount() > 0)
+    while (infile.read(chunk, sizeof(chunk)))
     {
-        buffer.insert(buffer.end(), chunk, chunk + infile.gcount());
-
-        bool buffer_changed = true;
-        // We use an inner loop because one 4096 chunk might contain the end of one file AND the start of another!
-        while (buffer_changed)
-        {
-            buffer_changed = false;
-
-            // -------------------------------------------------------------
-            // STATE 1: Find the Headers and Identify the Field
-            // -------------------------------------------------------------
-            if (!headers_parsed)
-            {
-                std::string header_end_str = "\r\n\r\n";
-                std::vector<char>::iterator header_end = std::search(buffer.begin(), buffer.end(), header_end_str.begin(), header_end_str.end());
-
-                if (header_end != buffer.end())
-                {
-                    std::string header_text(buffer.begin(), header_end);
-                    size_t f_pos = header_text.find("filename=\"");
-
-                    if (f_pos != std::string::npos)
-                    {
-                        // WE FOUND A FILE!
-                        is_file = true;
-                        f_pos += 10;
-                        size_t f_end = header_text.find("\"", f_pos);
-                        if (f_end != std::string::npos)
-                        {
-                            filename = header_text.substr(f_pos, f_end - f_pos);
-                        }
-                        else
-                        {
-                            filename = "uploaded_file.bin";
-                        }
-                        std::string final_path = upload_dir;
-                        if (final_path[final_path.length() - 1] != '/')
-                            final_path += "/";
-                        final_path += filename;
-
-                        outfile.open(final_path.c_str(), std::ios::binary | std::ios::trunc);
-                        if (!outfile.is_open())
-                        {
-                            _response.buildErrorResponse(500, _server.error_pages);
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        // IT'S A TEXT FIELD (e.g., username=42student). We ignore it!
-                        is_file = false;
-                    }
-
-                    // Erase headers and move to State 2
-                    buffer.erase(buffer.begin(), header_end + 4);
-                    headers_parsed = true;
-                    buffer_changed = true; // Instantly process the body logic below
-                }
-            }
-
-            // -------------------------------------------------------------
-            // STATE 2: Write the File Content (or Skip Text Content)
-            // -------------------------------------------------------------
-            if (headers_parsed)
-            {
-                std::vector<char>::iterator boundary_pos = std::search(buffer.begin(), buffer.end(), end_boundary.begin(), end_boundary.end());
-
-                if (boundary_pos != buffer.end())
-                {
-                    // WE FOUND THE END BOUNDARY FOR THIS FIELD!
-                    if (is_file)
-                    {
-                        if (boundary_pos > buffer.begin())
-                        {
-                            outfile.write(&buffer[0], boundary_pos - buffer.begin());
-                        }
-                        // Close the file and add it to our success list
-                        outfile.close();
-                        out_filenames.push_back(filename);
-                    }
-
-                    // Erase the processed data AND the boundary
-                    buffer.erase(buffer.begin(), boundary_pos + end_boundary.length());
-
-                    // RESET THE STATE MACHINE FOR THE NEXT FILE!
-                    headers_parsed = false;
-                    buffer_changed = true;
-                }
-                else
-                {
-                    // BOUNDARY NOT FOUND YET, KEEP WRITING SAFE CHUNKS
-                    if (buffer.size() > end_boundary.length())
-                    {
-                        size_t write_size = buffer.size() - end_boundary.length();
-                        if (is_file)
-                        {
-                            outfile.write(&buffer[0], write_size);
-                        }
-                        buffer.erase(buffer.begin(), buffer.begin() + write_size);
-                    }
-                }
-            }
-        }
+        
     }
-
-    if (outfile.is_open())
-    {
-        outfile.close();
-    }
-    infile.close();
-    return true;
 }
 
 void PostHandler::execute(std::string path)
@@ -406,7 +309,7 @@ void PostHandler::execute(std::string path)
         std::string filename;
         if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
         {
-            filename = "uploaded_raw_file.bin";
+            filename = generateUniqueFilename("uploaded_raw_file.bin"); 
             path += "/" + filename;
         }
         else
@@ -414,12 +317,10 @@ void PostHandler::execute(std::string path)
             size_t pos = path.find_last_of('/');
             filename = (pos != std::string::npos) ? path.substr(pos + 1) : path;
         }
-
         if (!copyToDestination(temp_file, path))
         {
             return;
         }
-
         uploaded_files.push_back(filename);
         buildSuccessResponse(uploaded_files, true);
     }
