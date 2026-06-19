@@ -7,19 +7,17 @@
 #include "ServerBlock.hpp"
 #include "LocationBlock.hpp"
 
-class ConfigValidator {
-private:
-    // Helper functions using POSIX syscalls
-    static bool is_directory(const std::string& path);
-    static bool is_file_accessible(const std::string& path, int mode);
+class ConfigValidator
+{
+	private:
+		static bool is_directory(const std::string &path);
+		static bool is_file_accessible(const std::string &path, int mode);
 
-    static void validate_server(const Server& srv);
-    static void validate_location(const Location& loc);
+		static void validate_server(const Server &srv);
+		static void validate_location(const Location &loc);
 
-public:
-    // The main entry point
-    static void validate(const std::vector<Server>& servers);
-    Location parse_location(size_t inherited_max_body_size);
+	public:
+		static void validate(const std::vector<Server> &servers);
 };
 
 #endif

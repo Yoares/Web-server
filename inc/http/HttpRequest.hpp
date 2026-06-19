@@ -38,22 +38,20 @@ class HttpRequest
 		~HttpRequest();
 		void append(const char *buff, int size);
 		void ShowBuff();
-		
-		// Getter methods for testing
-		State getState() const { return state; }
-		Method getMethod() const { return method; }
-		std::string getPath() const { return path; }
-		std::string getQueryString() const { return query_string; }
-		std::string getHost() const { return Host; }
-		bool foundHost() const { return found_host; }
-		size_t getContentLength() const { return content_length; }
-		std::map<std::string, std::string> getHeaders() const { return headers; }
-		bool isHttpVersionValid() const { return http_version_valid; }
-		std::string getTempFilename() const { return _temp_filename; }
+		State getState() const;
+		Method getMethod() const;
+		std::string getPath() const;
+		std::string getQueryString() const;
+		std::string getHost() const;
+		bool foundHost() const;
+		size_t getContentLength() const;
+		std::map<std::string, std::string> getHeaders() const;
+		bool isHttpVersionValid() const;
+		std::string getTempFilename() const;
 
 		void startBodyParsing();
-		int getErrorCode() const { return _error_code; }
-		bool isChunked() const { return _is_chunked; }
+		int getErrorCode() const;
+		bool isChunked() const;
 
 		std::string getCookie(const std::string& name) const;
 
@@ -87,9 +85,9 @@ class HttpRequest
 		void setHeaderName(size_t start, size_t end, std::string &header_name);
 		void setHeaderValue(size_t start, size_t end, std::string &header_value);
 		bool _is_chunked;
-		int _chunk_state;         // 0: Size, 1: Data, 2: Trailer (\r\n)
-		size_t _chunk_bytes_left; // Bytes left to read in the current chunk
-		bool _is_last_chunk;      // True when we read a 0 size
+		int _chunk_state;         
+		size_t _chunk_bytes_left; 
+		bool _is_last_chunk;      
 		
 		void parseChunkedBody();
 

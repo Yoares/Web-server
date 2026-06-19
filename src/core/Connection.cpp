@@ -6,6 +6,26 @@ const char *Connection::ConnectionClosed::what() const throw()
 	return "Connection closed safely.";
 }
 
+Connection::Connection(int fd, const std::vector<Server> &servers, Logger_manager *_session_manager)
+	: _client_fd(fd), _possible_servers(servers), _session_manager(_session_manager), _matched_server(NULL),
+	  _last_activity(time(NULL)), matched_location(NULL), listen_port(0),
+	  _headers_sent(0), _body_sent(0), _is_response_ready(false) {}
+
+void Connection::updateActivity()
+{
+	_last_activity = time(NULL);
+}
+
+time_t Connection::getLastActivity()
+{
+	return _last_activity;
+}
+
+bool Connection::isResponseReady()
+{
+	return _is_response_ready;
+}
+
 void Connection::handlePost(const Location &loc, std::string _path)
 {
 	if (!_matched_server)
@@ -21,7 +41,10 @@ void Connection::handlePost(const Location &loc, std::string _path)
 
 void Connection::buildErrorResponse(int code)
 {
-	_response.buildErrorResponse(code, _matched_server->error_pages);
+	if (_matched_server)
+		_response.buildErrorResponse(code, _matched_server->error_pages);
+	else
+		_response.buildErrorResponse(code, std::map<int, std::string>());
 	if (code == 405)
 	{
 		std::string allowed_methods;
@@ -188,7 +211,7 @@ int Connection::checkCGI(const std::string &path)
 	return 1;
 }
 
-#include <cstdlib> 
+#include <cstdlib>
 
 void Connection::parseCgiHeaders(const std::string &headers_str)
 {

@@ -8,47 +8,42 @@
 #include "../config/Config.hpp"
 #include "../utils/Helpers.hpp"
 
-class HttpResponse {
-private:
-    int _status_code;
-    std::string _status_message;
-    std::map<std::string, std::string> _headers;
-    
-    // For small text responses (like error pages)
-    std::string _body;
-    
-    // For large file responses
-    bool _is_file;
-    std::string _file_path;
-    size_t _file_size;
+class HttpResponse
+{
+	private:
+		int _status_code;
+		std::string _status_message;
+		std::map<std::string, std::string> _headers;
 
-    std::string getReasonPhrase(int code) const;
+		std::string _body;
 
-    std::vector<std::string> _set_cookies;
+		bool _is_file;
+		std::string _file_path;
+		size_t _file_size;
 
-public:
-    HttpResponse();
-    ~HttpResponse();
+		std::string getReasonPhrase(int code) const;
 
-    void setStatusCode(int code);
-    void setHeader(const std::string& key, const std::string& value);
-    void setBody(const std::string& body);
-    
-    // ADDED: Setup for serving a large file
-    void setFile(const std::string& path, size_t size);
+		std::vector<std::string> _set_cookies;
 
-    void buildErrorResponse(int code, const std::map<int, std::string>& error_pages);
-    std::string getHeadersAsString() const;
+	public:
+		HttpResponse();
+		~HttpResponse();
 
-    // Getters for the Connection class to use
-    bool isFile() const { return _is_file; }
-    std::string getFilePath() const { return _file_path; }
-    size_t getFileSize() const { return _file_size; }
-    std::string getBody() const { return _body; }
+		void setStatusCode(int code);
+		void setHeader(const std::string &key, const std::string &value);
+		void setBody(const std::string &body);
 
-    // cookies
-    void setCookie(const std::string& name, const std::string& value, int max_age);
+		void setFile(const std::string &path, size_t size);
 
+		void buildErrorResponse(int code, const std::map<int, std::string> &error_pages);
+		std::string getHeadersAsString() const;
+
+		bool isFile() const;
+		std::string getFilePath() const;
+		size_t getFileSize() const;
+		std::string getBody() const;
+
+		void setCookie(const std::string &name, const std::string &value, int max_age);
 };
 
 #endif

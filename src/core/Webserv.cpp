@@ -146,16 +146,16 @@ void Webserv::checkTimeouts()
 		}
 		if (current_time - conn.getLastActivity() > TIMEOUT_LIMIT)
 		{
-			std::cout << "[INFO] Connection timed out (FD: " << it->first << "). Closing." << std::endl;
-			epoll_ctl(epollFd, EPOLL_CTL_DEL, it->first, NULL);
-			close(it->first);
-
-			std::map<int, Connection>::iterator temp = it;
-			it++;
-			connections.erase(temp);
+			std::cout << "[INFO] Connection timed out (FD: " << it->first << ")." << std::endl;
+			conn.buildErrorResponse(408);
+			struct epoll_event ev;
+			std::memset(&ev, 0, sizeof(ev));
+			ev.events = EPOLLOUT;
+			ev.data.fd = it->first;
+			if (epoll_ctl(epollFd, EPOLL_CTL_MOD, it->first, &ev) == -1)
+				std::cerr << "[ERROR] Failed to modify epoll to EPOLLOUT for timeout response" << std::endl;
 		}
-		else
-			it++;
+		it++;
 	}
 	_session_manager.cleanupExpiredSessions();
 }

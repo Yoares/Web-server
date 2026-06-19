@@ -5,6 +5,14 @@ HttpResponse::HttpResponse() : _status_code(200), _status_message("OK"), _body("
 
 HttpResponse::~HttpResponse() {}
 
+bool HttpResponse::isFile() const { return _is_file; }
+
+std::string HttpResponse::getFilePath() const { return _file_path; }
+
+size_t HttpResponse::getFileSize() const { return _file_size; }
+
+std::string HttpResponse::getBody() const { return _body; }
+
 void HttpResponse::setStatusCode(int code)
 {
 	_status_code = code;
@@ -69,6 +77,8 @@ std::string HttpResponse::getReasonPhrase(int code) const
 		return "URI Too Long";
 	case 204:
 		return "No Content";
+	case 408:
+		return "Request Timeout";
 	default:
 		return "Unknown Error";
 	}
@@ -86,18 +96,16 @@ std::string HttpResponse::getHeadersAsString() const
 	{
 		out << "Set-Cookie: " << _set_cookies[i] << "\r\n";
 	}
-	out << "\r\n"; // Blank line separating headers from body
+	out << "\r\n";
 	return out.str();
 }
 
 void HttpResponse::buildErrorResponse(int code, const std::map<int, std::string> &error_pages)
 {
-	// 1. Set the basic status and headers
 	setStatusCode(code);
 	setHeader("Content-Type", "text/html");
 	setHeader("Connection", "close");
 
-	// 2. Try to load a custom error page from the configuration file
 	std::map<int, std::string>::const_iterator it = error_pages.find(code);
 	if (it != error_pages.end())
 	{
@@ -106,8 +114,6 @@ void HttpResponse::buildErrorResponse(int code, const std::map<int, std::string>
 		{
 			std::ostringstream ss;
 			ss << file.rdbuf();
-
-			// setBody automatically handles setting the Content-Length header
 			setBody(ss.str());
 			return;
 		}
@@ -117,7 +123,6 @@ void HttpResponse::buildErrorResponse(int code, const std::map<int, std::string>
 		}
 	}
 
-	// 3. Fallback: Generate a default NGINX-style error page inline
 	std::ostringstream html;
 	html << "<html>\r\n"
 		 << "<head><title>" << _status_code << " " << _status_message << "</title></head>\r\n"
@@ -129,8 +134,6 @@ void HttpResponse::buildErrorResponse(int code, const std::map<int, std::string>
 
 	setBody(html.str());
 }
-
-// ... (Keep your buildErrorResponse function from the previous step)
 
 void HttpResponse::setCookie(const std::string &name, const std::string &value, int max_age)
 {

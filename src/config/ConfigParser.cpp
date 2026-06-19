@@ -164,6 +164,10 @@ Location ConfigParser::parse_location(size_t inherited_max_body_size, std::strin
         {
             std::string ext = consume();
             std::string bin = consume();
+			if (ext[0] != '.')
+				throw std::runtime_error("Config Syntax Error: cgi_pass extension should start with a dot (e.g., .php).");
+			if (bin[0] != '/')
+				throw std::runtime_error("Config Syntax Error: cgi_pass binary path should be absolute. Use absolute paths.");
             loc.cgi_pass[ext] = bin;
             expect(";");
         }

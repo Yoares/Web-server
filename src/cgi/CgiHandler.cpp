@@ -20,6 +20,23 @@ CgiHandler::CgiHandler(const std::string &script_path, const std::string &cgi_bi
 	_output_file = "";
 }
 
+CgiHandler::CgiHandler()
+{
+	_pid = -1;
+	_method = 0;
+	_state = CGI_INIT;
+	_script_path = "";
+	_cgi_bin = "";
+	_tmp_post_file = "";
+	_exit_status = 0;
+	_stdout_pipe[0] = -1;
+	_stdout_pipe[1] = -1;
+	cgi_output_fd = -1;
+	_output_file = "";
+	_output_state = OUTPUT_READING_HEADERS;
+	body_size = 0;
+}
+
 CgiHandler::~CgiHandler()
 {
 	if (_stdout_pipe[0] != -1)
@@ -44,7 +61,7 @@ bool CgiHandler::execute(const std::vector<std::string> &envp_vec)
 	{
 		_state = CGI_ERROR;
 		return false;
-	}	
+	}
 	_start_time = std::time(NULL);
 	_pid = fork();
 	if (_pid == -1)
@@ -93,6 +110,24 @@ bool CgiHandler::execute(const std::vector<std::string> &envp_vec)
 	_stdout_pipe[1] = -1;
 	_state = CGI_RUNNING;
 	return true;
+}
+
+CgiHandler &CgiHandler::operator=(const CgiHandler &other)
+{
+	this->_pid = -1;
+	this->_method = other._method;
+	this->_state = other._state;
+	this->_script_path = other._script_path;
+	this->_cgi_bin = other._cgi_bin;
+	this->_tmp_post_file = other._tmp_post_file;
+	this->_exit_status = other._exit_status;
+	this->_stdout_pipe[0] = -1;
+	this->_stdout_pipe[1] = -1;
+	this->cgi_output_fd = -1;
+	this->_output_file = other._output_file;
+	this->_output_state = other._output_state;
+	this->body_size = 0;
+	return *this;
 }
 
 std::string CgiHandler::getOutFile() const

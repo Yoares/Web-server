@@ -1,6 +1,5 @@
 #include "../../inc/config/LocationBlock.hpp"
 
-// --- C++98 Default Constructor ---
 Location::Location()
     : path("")
     , root("")
