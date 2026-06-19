@@ -14,8 +14,8 @@ static std::string generateUniqueFilename(const std::string &baseName)
 
     std::ostringstream oss;
 
-    oss << tv.tv_sec << "_" << tv.tv_usec << "_" << baseName; 
-    
+    oss << tv.tv_sec << "_" << tv.tv_usec << "_" << baseName;
+
     return oss.str();
 }
 
@@ -235,10 +235,109 @@ bool PostHandler::processMultipart(const std::string &temp_file, const std::stri
     std::ofstream outfile;
     std::string filename = "";
 
-    while (infile.read(chunk, sizeof(chunk)))
+    while (infile.read(chunk, sizeof(chunk)) || infile.gcount() > 0)
     {
-        
+        buffer.insert(buffer.end(), chunk, chunk + infile.gcount());
+
+        bool buffer_changed = true;
+
+        while (buffer_changed)
+        {
+            buffer_changed = false;
+
+            if (!headers_parsed)
+            {
+                std::string header_end_str = "\r\n\r\n";
+                std::vector<char>::iterator header_end = std::search(buffer.begin(), buffer.end(), header_end_str.begin(), header_end_str.end());
+
+                if (header_end != buffer.end())
+                {
+                    std::string header_text(buffer.begin(), header_end);
+                    size_t f_pos = header_text.find("filename=\"");
+
+                    if (f_pos != std::string::npos)
+                    {
+
+                        is_file = true;
+                        f_pos += 10;
+                        size_t f_end = header_text.find("\"", f_pos);
+                        if (f_end != std::string::npos)
+                        {
+                            filename = header_text.substr(f_pos, f_end - f_pos);
+                        }
+                        else
+                        {
+                            filename = generateUniqueFilename("uploaded_file.bin");
+                        }
+                        std::string final_path = upload_dir;
+                        if (final_path[final_path.length() - 1] != '/')
+                            final_path += "/";
+                        final_path += filename;
+
+                        outfile.open(final_path.c_str(), std::ios::binary | std::ios::trunc);
+                        if (!outfile.is_open())
+                        {
+                            _response.buildErrorResponse(500, _server.error_pages);
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        is_file = false;
+                    }
+
+                    buffer.erase(buffer.begin(), header_end + 4);
+                    headers_parsed = true;
+                    buffer_changed = true;
+                }
+            }
+
+            if (headers_parsed)
+            {
+                std::vector<char>::iterator boundary_pos = std::search(buffer.begin(), buffer.end(), end_boundary.begin(), end_boundary.end());
+
+                if (boundary_pos != buffer.end())
+                {
+
+                    if (is_file)
+                    {
+                        if (boundary_pos > buffer.begin())
+                        {
+                            outfile.write(&buffer[0], boundary_pos - buffer.begin());
+                        }
+
+                        outfile.close();
+                        out_filenames.push_back(filename);
+                    }
+
+                    buffer.erase(buffer.begin(), boundary_pos + end_boundary.length());
+
+                    headers_parsed = false;
+                    buffer_changed = true;
+                }
+                else
+                {
+
+                    if (buffer.size() > end_boundary.length())
+                    {
+                        size_t write_size = buffer.size() - end_boundary.length();
+                        if (is_file)
+                        {
+                            outfile.write(&buffer[0], write_size);
+                        }
+                        buffer.erase(buffer.begin(), buffer.begin() + write_size);
+                    }
+                }
+            }
+        }
     }
+
+    if (outfile.is_open())
+    {
+        outfile.close();
+    }
+    infile.close();
+    return true;
 }
 
 void PostHandler::execute(std::string path)
@@ -309,7 +408,7 @@ void PostHandler::execute(std::string path)
         std::string filename;
         if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
         {
-            filename = generateUniqueFilename("uploaded_raw_file.bin"); 
+            filename = generateUniqueFilename("uploaded_raw_file.bin");
             path += "/" + filename;
         }
         else

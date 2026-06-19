@@ -7,45 +7,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 
-std::string Connection::resolvePhysicalPath(const std::string &request_uri, const Location &loc)
-{
-    std::string _path;
-    std::string root;
-
-    if (loc.root.empty())
-        root = "/var/www/html";
-    else
-        root = loc.root;
-
-    if (request_uri.find("..") != std::string::npos)
-        return "";
-
-    std::string clean_uri = request_uri;
-    if (!loc.path.empty() && request_uri.find(loc.path) == 0)
-    {
-        clean_uri = request_uri.substr(loc.path.length());
-        if (clean_uri.empty() || clean_uri[0] != '/')
-        {
-            clean_uri = "/" + clean_uri;
-        }
-    }
-
-    if (root[root.length() - 1] == '/' && clean_uri[0] == '/')
-    {
-        _path = root + clean_uri.substr(1);
-    }
-    else if (root[root.length() - 1] != '/' && clean_uri[0] != '/')
-    {
-        _path = root + "/" + clean_uri;
-    }
-    else
-    {
-        _path = root + clean_uri;
-    }
-
-    return _path;
-}
-
 static bool readFile(int fd, std::string &content)
 {
 
@@ -155,9 +116,13 @@ void Connection::serveFile(const std::string &_path)
 void Connection::handleGet(const Location &loc, std::string _path)
 {
 
-    if (_path.empty() || _request.getPath().find("..") != std::string::npos)
+    if (_path.empty())
     {
         buildErrorResponse(400);
+    }
+    if (_request.getPath().find("..") != std::string::npos)
+    {
+        buildErrorResponse(403);
         return;
     }
 
