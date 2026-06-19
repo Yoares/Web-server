@@ -27,6 +27,42 @@ HttpRequest::HttpRequest()
 	_is_last_chunk = false;
 }
 
+State HttpRequest::getState() const
+{
+	return state;
+}
+
+Method HttpRequest::getMethod() const
+{
+	return method;
+}
+
+std::string HttpRequest::getPath() const
+{
+	return path;
+}
+
+std::string HttpRequest::getQueryString() const
+{
+	return query_string;
+}
+
+std::string HttpRequest::getHost() const { return Host; }
+
+bool HttpRequest::foundHost() const { return found_host; }
+
+size_t HttpRequest::getContentLength() const { return content_length; }
+
+std::map<std::string, std::string> HttpRequest::getHeaders() const { return headers; }
+
+bool HttpRequest::isHttpVersionValid() const { return http_version_valid; }
+
+std::string HttpRequest::getTempFilename() const { return _temp_filename; }
+
+int HttpRequest::getErrorCode() const { return _error_code; }
+
+bool HttpRequest::isChunked() const { return _is_chunked; }
+
 void HttpRequest::parseChunkedBody()
 {
 	while (!buffer.empty() && state == READING_BODY)

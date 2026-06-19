@@ -16,16 +16,16 @@
 #include "../utils/Helpers.hpp"
 #include <exception>
 #include <unistd.h>
-       #include <fcntl.h>
+#include <fcntl.h>
 
 class Webserv
 {
-    private:
-        int epollFd;
-        Logger_manager& _session_manager;
-        std::map <int, std::vector<Server> > fdToServers;
+	private:
+		int epollFd;
+		Logger_manager &_session_manager;
+		std::map<int, std::vector<Server> > fdToServers;
 
-        std::map <int, Connection> connections;
+		std::map<int, Connection> connections;
 
 		std::vector<epoll_event> waitforEvents();
 		void handleConnections(const std::vector<epoll_event> &events);
@@ -34,15 +34,15 @@ class Webserv
 
 		class NoEvents : public std::exception
 		{
-			public:
-				const char* what() const throw();
+		public:
+			const char *what() const throw();
 		};
 
-    public:
-        Webserv(const std::vector<Server> &servers, Logger_manager& _session_manager);
-        ~Webserv();
+	public:
+		Webserv(const std::vector<Server> &servers, Logger_manager &_session_manager);
+		~Webserv();
 
-        void run(); 
+		void run();
 };
 
 #endif

@@ -33,7 +33,6 @@ void Connection::handleDelete(std::string path) {
         _response.setStatusCode(204); 
         _response.setBody(""); 
     } else {
-        // OS level failure (e.g., file locked by another process)
         buildErrorResponse(500);
     }
     _header_buffer = _response.getHeadersAsString();
