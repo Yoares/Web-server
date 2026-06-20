@@ -414,7 +414,11 @@ void PostHandler::execute(std::string path)
         else
         {
             size_t pos = path.find_last_of('/');
-            filename = (pos != std::string::npos) ? path.substr(pos + 1) : path;
+
+            if (pos != std::string::npos)
+                filename = path.substr(pos + 1);
+            else
+                filename = path;
         }
         if (!copyToDestination(temp_file, path))
         {
